@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AJAX Africa Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+         :root {
+            --primary: #00843D;
+            /* African green */
+            --primary-dark: #006B31;
+            --secondary: #FFD700;
+            /* African gold */
+            --secondary-dark: #E6C200;
+            --accent: #E31B23;
+            /* African red */
+            --light: #f8f9fa;
+            --dark: #1A1A1A;
+            --gray: #6c757d;
+            --success: #38b000;
+            --error: #e63946;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 15px 40px rgba(0, 0, 0, 0.15);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0F5959 0%, #003333 100%);
+            /* African colors */
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: var(--dark);
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        /* Login Form Styles */
+        
+        .login-container {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: var(--transition);
+            animation: fadeIn 0.8s ease-out;
+            border: 3px solid var(--secondary);
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .login-header {
+            background: linear-gradient(90deg, var(--primary) 0%, #0F5959 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-header::before {
+            content: "✧";
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 2rem;
+            opacity: 0.2;
+            color: var(--secondary);
+        }
+        
+        .login-header::after {
+            content: "✧";
+            position: absolute;
+            bottom: 10px;
+            left: 20px;
+            font-size: 2rem;
+            opacity: 0.2;
+            color: var(--secondary);
+        }
+        
+        .login-header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .login-header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        
+        .login-form {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.95rem;
+        }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+            font-size: 1.1rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            border: 2px solid #e9ecef;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            transition: var(--transition);
+            background: #f8f9fa;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(0, 132, 61, 0.1);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+        }
+        
+        .login-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .demo-credentials {
+            background: #f8f9fa;
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-top: 30px;
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .demo-credentials h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+        
+        .demo-credentials p {
+            color: var(--gray);
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        /* Dashboard Styles (Initially Hidden) */
+        
+        .dashboard {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: none;
+            animation: slideIn 0.8s ease-out;
+            border: 3px solid var(--secondary);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .dashboard-header {
+            background: linear-gradient(90deg, var(--primary) 0%, #0F5959 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dashboard-header::before {
+            content: "✦";
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 2rem;
+            opacity: 0.2;
+            color: var(--secondary);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: 2px solid white;
+        }
+        
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .dashboard-content {
+            padding: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        /* AJAX Explanation */
+        
+        .ajax-explanation {
+            background: linear-gradient(135deg, rgba(0, 132, 61, 0.05) 0%, rgba(255, 215, 0, 0.05) 100%);
+            border-radius: var(--radius);
+            padding: 30px;
+            margin-bottom: 40px;
+            border-left: 5px solid var(--primary);
+        }
+        
+        .ajax-explanation h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .explanation-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .step {
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.03);
+        }
+        
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 35px;
+            height: 35px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        /* AJAX Controls */
+        
+        .ajax-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .ajax-btn {
+            padding: 14px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 200px;
+            justify-content: center;
+        }
+        
+        .ajax-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+        }
+        
+        .btn-countries {
+            background: linear-gradient(90deg, var(--primary) 0%, #0F5959 100%);
+        }
+        
+        .btn-countries:hover {
+            background: linear-gradient(90deg, #0F5959 0%, #003333 100%);
+        }
+        
+        .btn-cities {
+            background: linear-gradient(90deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+            color: var(--dark);
+        }
+        
+        .btn-cities:hover {
+            background: linear-gradient(90deg, var(--secondary-dark) 0%, #D4B700 100%);
+        }
+        
+        .btn-clear {
+            background: linear-gradient(90deg, var(--accent) 0%, #C4161C 100%);
+        }
+        
+        .btn-clear:hover {
+            background: linear-gradient(90deg, #C4161C 0%, #A61217 100%);
+        }
+        /* Content Display */
+        
+        .content-display {
+            background: white;
+            border-radius: var(--radius);
+            padding: 30px;
+            min-height: 300px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f1f3f5;
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: var(--gray);
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(0, 132, 61, 0.1);
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .country-card,
+        .city-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f1f3f5;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .country-card:hover,
+        .city-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .country-card::before,
+        .city-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+        
+        .country-name,
+        .city-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+        
+        .country-detail,
+        .city-detail {
+            color: var(--gray);
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            text-align: center;
+            color: var(--gray);
+        }
+        
+        .empty-state i {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            color: #dee2e6;
+        }
+        
+        .flag {
+            font-size: 1.5rem;
+            margin-right: 5px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+        /* Responsive Design */
+        
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                gap: 20px;
+                align-items: flex-start;
+            }
+            .ajax-controls {
+                flex-direction: column;
+            }
+            .ajax-btn {
+                width: 100%;
+            }
+            .explanation-steps {
+                grid-template-columns: 1fr;
+            }
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Login Form (Initially Visible) -->
+        <div class="login-container" id="loginContainer">
+            <div class="login-header">
+                <h1><i class="fas fa-globe-africa"></i> Africa AJAX Explorer</h1>
+                <p>Login to explore African countries and cities via AJAX</p>
+            </div>
+
+            <div class="login-form">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" class="form-control" id="username" placeholder="Enter username" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-key input-icon"></i>
+                            <input type="password" class="form-control" id="password" placeholder="Enter password" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="login-btn">
+                        <i class="fas fa-sign-in-alt"></i> Explore Africa
+                    </button>
+                </form>
+
+                <div class="demo-credentials">
+                    <h3><i class="fas fa-info-circle"></i> Demo Credentials</h3>
+                    <p><strong>Username:</strong> explorer</p>
+                    <p><strong>Password:</strong> africa123</p>
+                    <p style="margin-top: 10px; font-size: 0.85rem;">Use these credentials to login to the demo</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard (Initially Hidden) -->
+        <div class="dashboard" id="dashboard">
+            <div class="dashboard-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">E</div>
+                    <div>
+                        <h2 id="welcomeMessage">Welcome, Explorer!</h2>
+                        <p>Africa AJAX Explorer Dashboard</p>
+                    </div>
+                </div>
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+
+            <div class="dashboard-content">
+                <!-- AJAX Explanation Section -->
+                <div class="ajax-explanation">
+                    <h3><i class="fas fa-code"></i> How AJAX Works in This Demo</h3>
+                    <p>This dashboard demonstrates AJAX (Asynchronous JavaScript and XML) which allows web pages to request data from a server <strong>without refreshing the page</strong>. Here's how it works:</p>
+
+                    <div class="explanation-steps">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <h4>User Interaction</h4>
+                            <p>You click a button (Load Countries or Load Cities) which triggers a JavaScript function.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <h4>AJAX Request</h4>
+                            <p>JavaScript sends an HTTP request to fetch African data in the background.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <h4>Server Response</h4>
+                            <p>The data (countries or cities) returns without interrupting your experience.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <h4>Update Content</h4>
+                            <p>JavaScript processes the response and updates only the content area dynamically.</p>
+                        </div>
+                    </div>
+
+                    <p style="margin-top: 20px; font-weight: 600; color: var(--primary);">
+                        <i class="fas fa-lightbulb"></i> Try it below! The page won't reload when you fetch African data.
+                    </p>
+                </div>
+
+                <!-- AJAX Controls -->
+                <h2 class="section-title"><i class="fas fa-sliders-h"></i> AJAX Controls</h2>
+                <div class="ajax-controls">
+                    <button class="ajax-btn btn-countries" id="loadCountries">
+                        <i class="fas fa-flag"></i> Load African Countries
+                    </button>
+                    <button class="ajax-btn btn-cities" id="loadCities">
+                        <i class="fas fa-city"></i> Load African Cities
+                    </button>
+                    <button class="ajax-btn btn-clear" id="clearContent">
+                        <i class="fas fa-eraser"></i> Clear Content
+                    </button>
+                </div>
+
+                <!-- Content Display Area -->
+                <h2 class="section-title"><i class="fas fa-columns"></i> Content Display Area</h2>
+                <div class="content-display" id="contentContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-globe-africa"></i>
+                        <h3>No Content Loaded Yet</h3>
+                        <p>Click a button above to fetch and display African data using AJAX</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Africa AJAX Explorer | Demonstrating Asynchronous Content Loading</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const loginContainer = document.getElementById('loginContainer');
+            const dashboard = document.getElementById('dashboard');
+            const loginForm = document.getElementById('loginForm');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const userAvatar = document.getElementById('userAvatar');
+            const welcomeMessage = document.getElementById('welcomeMessage');
+
+            // AJAX Elements
+            const contentContainer = document.getElementById('contentContainer');
+            const loadCountriesBtn = document.getElementById('loadCountries');
+            const loadCitiesBtn = document.getElementById('loadCities');
+            const clearContentBtn = document.getElementById('clearContent');
+
+            // African Data
+            const africanCountries = [{
+                name: "Nigeria",
+                capital: "Abuja",
+                population: "206 million",
+                language: "English",
+                currency: "Naira (₦)",
+                flag: "🇳🇬",
+                fact: "Africa's largest economy and most populous country"
+            }, {
+                name: "South Africa",
+                capital: "Pretoria",
+                population: "59 million",
+                language: "11 official languages",
+                currency: "Rand (R)",
+                flag: "🇿🇦",
+                fact: "Has three capital cities: Pretoria, Cape Town, and Bloemfontein"
+            }, {
+                name: "Egypt",
+                capital: "Cairo",
+                population: "102 million",
+                language: "Arabic",
+                currency: "Egyptian Pound (E£)",
+                flag: "🇪🇬",
+                fact: "Home to one of the Seven Wonders of the Ancient World"
+            }, {
+                name: "Kenya",
+                capital: "Nairobi",
+                population: "54 million",
+                language: "Swahili, English",
+                currency: "Kenyan Shilling (KSh)",
+                flag: "🇰🇪",
+                fact: "World's leading safari destination"
+            }, {
+                name: "Ghana",
+                capital: "Accra",
+                population: "31 million",
+                language: "English",
+                currency: "Cedi (₵)",
+                flag: "🇬🇭",
+                fact: "First African country to gain independence from colonial rule"
+            }, {
+                name: "Morocco",
+                capital: "Rabat",
+                population: "37 million",
+                language: "Arabic, Berber",
+                currency: "Moroccan Dirham (MAD)",
+                flag: "🇲🇦",
+                fact: "Home to the world's oldest university"
+            }];
+
+            const africanCities = [{
+                name: "Lagos, Nigeria",
+                population: "14 million",
+                landmark: "Lagos Island",
+                fact: "Africa's most populous city and economic hub",
+                icon: "🏙️"
+            }, {
+                name: "Cairo, Egypt",
+                population: "9.5 million",
+                landmark: "Pyramids of Giza",
+                fact: "Largest city in the Arab world",
+                icon: "🐫"
+            }, {
+                name: "Nairobi, Kenya",
+                population: "4.4 million",
+                landmark: "Nairobi National Park",
+                fact: "Only capital city with a national park",
+                icon: "🦁"
+            }, {
+                name: "Johannesburg, South Africa",
+                population: "5.6 million",
+                landmark: "Soweto",
+                fact: "World's largest man-made urban forest",
+                icon: "🌳"
+            }, {
+                name: "Accra, Ghana",
+                population: "2.5 million",
+                landmark: "Independence Square",
+                fact: "One of Africa's fastest-growing cities",
+                icon: "🌅"
+            }, {
+                name: "Cape Town, South Africa",
+                population: "4.6 million",
+                landmark: "Table Mountain",
+                fact: "Named World Design Capital in 2014",
+                icon: "⛰️"
+            }];
+
+            // Demo credentials
+            const demoCredentials = {
+                username: 'explorer',
+                password: 'africa123'
+            };
+
+            // Login Functionality
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+
+                // Simple validation
+                if (!username || !password) {
+                    showLoginError('Please enter both username and password');
+                    return;
+                }
+
+                // Check credentials
+                if (username === demoCredentials.username && password === demoCredentials.password) {
+                    // Successful login
+                    loginSuccess(username);
+                } else {
+                    // Failed login
+                    showLoginError('Invalid username or password. Try explorer/africa123');
+                }
+            });
+
+            function loginSuccess(username) {
+                // Update UI
+                userAvatar.textContent = username.charAt(0).toUpperCase();
+                welcomeMessage.textContent = `Welcome, ${username}!`;
+
+                // Show dashboard, hide login
+                loginContainer.style.display = 'none';
+                dashboard.style.display = 'block';
+
+                // Add visual feedback
+                loginContainer.style.opacity = '0';
+                loginContainer.style.transform = 'translateY(-20px)';
+
+                // Show success message
+                showMessage('Login successful! Welcome to Africa AJAX Explorer.', 'success');
+            }
+
+            function showLoginError(message) {
+                // Create error element
+                let errorElement = document.querySelector('.login-error');
+
+                if (!errorElement) {
+                    errorElement = document.createElement('div');
+                    errorElement.className = 'login-error';
+                    errorElement.style.cssText = `
+                        background: linear-gradient(90deg, rgba(230, 57, 70, 0.1) 0%, rgba(230, 57, 70, 0.05) 100%);
+                        border-left: 4px solid var(--error);
+                        padding: 15px;
+                        border-radius: var(--radius);
+                        margin-top: 20px;
+                        color: var(--error);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    `;
+                    loginForm.appendChild(errorElement);
+                }
+
+                errorElement.innerHTML = `
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>${message}</span>
+                `;
+
+                // Shake animation for form
+                loginForm.style.animation = 'none';
+                setTimeout(() => {
+                    loginForm.style.animation = 'shake 0.5s ease-in-out';
+                }, 10);
+
+                // Remove error after 5 seconds
+                setTimeout(() => {
+                    if (errorElement) errorElement.remove();
+                }, 5000);
+            }
+
+            // Logout functionality
+            logoutBtn.addEventListener('click', function() {
+                // Reset form
+                loginForm.reset();
+
+                // Show login, hide dashboard
+                loginContainer.style.display = 'block';
+                dashboard.style.display = 'none';
+
+                // Reset animations
+                loginContainer.style.opacity = '1';
+                loginContainer.style.transform = 'translateY(0)';
+
+                // Clear content
+                contentContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-globe-africa"></i>
+                        <h3>No Content Loaded Yet</h3>
+                        <p>Click a button above to fetch and display African data using AJAX</p>
+                    </div>
+                `;
+
+                showMessage('You have been logged out successfully.', 'info');
+            });
+
+            // AJAX Functionality
+            function showLoading() {
+                contentContainer.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <h3>Fetching African Data via AJAX</h3>
+                        <p>Requesting data from server...</p>
+                        <p style="margin-top: 10px; font-size: 0.9rem; color: var(--gray);">
+                            <i class="fas fa-info-circle"></i> Page is not reloading!
+                        </p>
+                    </div>
+                `;
+            }
+
+            function showError(message) {
+                contentContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle" style="color: var(--error);"></i>
+                        <h3>AJAX Request Failed</h3>
+                        <p>${message}</p>
+                        <p style="margin-top: 10px; font-size: 0.9rem;">Try again or check your connection</p>
+                    </div>
+                `;
+            }
+
+            function displayCountries(countries) {
+                let html = '<div class="content-grid">';
+
+                countries.forEach(country => {
+                    html += `
+                        <div class="country-card">
+                            <div class="country-name">
+                                <span class="flag">${country.flag}</span> ${country.name}
+                            </div>
+                            <div class="country-detail">
+                                <i class="fas fa-landmark"></i>
+                                <span><strong>Capital:</strong> ${country.capital}</span>
+                            </div>
+                            <div class="country-detail">
+                                <i class="fas fa-users"></i>
+                                <span><strong>Population:</strong> ${country.population}</span>
+                            </div>
+                            <div class="country-detail">
+                                <i class="fas fa-language"></i>
+                                <span><strong>Language:</strong> ${country.language}</span>
+                            </div>
+                            <div class="country-detail">
+                                <i class="fas fa-money-bill-wave"></i>
+                                <span><strong>Currency:</strong> ${country.currency}</span>
+                            </div>
+                            <div class="country-detail" style="margin-top: 10px; font-style: italic;">
+                                <i class="fas fa-lightbulb"></i>
+                                <span>${country.fact}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                contentContainer.innerHTML = html;
+
+                showMessage(`Loaded ${countries.length} African countries via AJAX successfully!`, 'success');
+            }
+
+            function displayCities(cities) {
+                let html = '<div class="content-grid">';
+
+                cities.forEach(city => {
+                    html += `
+                        <div class="city-card">
+                            <div class="city-name">
+                                <span>${city.icon}</span> ${city.name}
+                            </div>
+                            <div class="city-detail">
+                                <i class="fas fa-users"></i>
+                                <span><strong>Population:</strong> ${city.population}</span>
+                            </div>
+                            <div class="city-detail">
+                                <i class="fas fa-monument"></i>
+                                <span><strong>Famous Landmark:</strong> ${city.landmark}</span>
+                            </div>
+                            <div class="city-detail" style="margin-top: 10px; font-style: italic;">
+                                <i class="fas fa-info-circle"></i>
+                                <span>${city.fact}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                contentContainer.innerHTML = html;
+
+                showMessage(`Loaded ${cities.length} African cities via AJAX successfully!`, 'success');
+            }
+
+            // Load Countries using XMLHttpRequest (Traditional AJAX)
+            loadCountriesBtn.addEventListener('click', function() {
+                showLoading();
+
+                // Simulate AJAX request with local data
+                setTimeout(() => {
+                    displayCountries(africanCountries);
+                }, 800); // Simulate network delay
+            });
+
+            // Load Cities using Fetch API (Modern AJAX)
+            loadCitiesBtn.addEventListener('click', function() {
+                showLoading();
+
+                // Simulate AJAX request with local data using Promise (like Fetch API)
+                new Promise((resolve, reject) => {
+                        setTimeout(() => {
+                            resolve(africanCities);
+                        }, 800); // Simulate network delay
+                    })
+                    .then(cities => {
+                        displayCities(cities);
+                    })
+                    .catch(error => {
+                        showError('Failed to load cities: ' + error.message);
+                    });
+            });
+
+            // Clear content
+            clearContentBtn.addEventListener('click', function() {
+                contentContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-eraser"></i>
+                        <h3>Content Cleared</h3>
+                        <p>Use the buttons above to load new African data via AJAX</p>
+                    </div>
+                `;
+
+                showMessage('Content cleared. Ready for new AJAX requests.', 'info');
+            });
+
+            // Utility function to show messages
+            function showMessage(message, type) {
+                // Remove existing message
+                const existingMsg = document.querySelector('.global-message');
+                if (existingMsg) existingMsg.remove();
+
+                // Create message element
+                const messageElement = document.createElement('div');
+                messageElement.className = 'global-message';
+
+                // Set styles based on type
+                let bgColor, icon;
+                if (type === 'success') {
+                    bgColor = 'linear-gradient(90deg, rgba(0, 132, 61, 0.1) 0%, rgba(0, 132, 61, 0.05) 100%)';
+                    icon = 'fas fa-check-circle';
+                    borderColor = 'var(--primary)';
+                } else if (type === 'error') {
+                    bgColor = 'linear-gradient(90deg, rgba(230, 57, 70, 0.1) 0%, rgba(230, 57, 70, 0.05) 100%)';
+                    icon = 'fas fa-exclamation-circle';
+                    borderColor = 'var(--error)';
+                } else {
+                    bgColor = 'linear-gradient(90deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%)';
+                    icon = 'fas fa-info-circle';
+                    borderColor = 'var(--secondary)';
+                }
+
+                messageElement.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    border-radius: var(--radius);
+                    box-shadow: var(--shadow);
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    z-index: 1000;
+                    max-width: 400px;
+                    animation: slideInRight 0.3s ease-out;
+                    border-left: 4px solid ${borderColor};
+                `;
+
+                messageElement.style.background = bgColor;
+                messageElement.innerHTML = `
+                    <i class="${icon}" style="font-size: 1.2rem;"></i>
+                    <span>${message}</span>
+                `;
+
+                document.body.appendChild(messageElement);
+
+                // Remove message after 4 seconds
+                setTimeout(() => {
+                    messageElement.style.animation = 'slideOutRight 0.3s ease-in';
+                    setTimeout(() => {
+                        if (messageElement.parentNode) {
+                            messageElement.parentNode.removeChild(messageElement);
+                        }
+                    }, 300);
+                }, 4000);
+            }
+
+            // Add CSS for animations
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                    20%, 40%, 60%, 80% { transform: translateX(5px); }
+                }
+                
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                
+                @keyframes slideOutRight {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Pre-focus username field
+            usernameInput.focus();
+        });
+    </script>
+</body>
+
+</html>

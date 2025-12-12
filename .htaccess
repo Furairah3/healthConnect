@@ -1,0 +1,13 @@
+# C:\xampp\htdocs\healthconnect\.htaccess
+
+# Allow access to all (for development)
+Require all granted
+
+# Prevent directory listing
+Options -Indexes
+
+# Protect sensitive files (but allow access for now)
+<FilesMatch "\.(env|log|sql)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
