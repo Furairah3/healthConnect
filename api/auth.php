@@ -111,7 +111,7 @@ if ($user['user_role'] === 'doctor' && !$user['is_approved']) {
         'message' => 'Login successful! Your account is pending admin approval.',
         'role' => 'doctor',
         'is_approved' => false,
-        'redirect' => '/healthConnect/views/auth/pending-approval.php'
+        'redirect' => '/~foureiratou.idi/healthConnect/views/auth/pending-approval.php'
     ]);
     exit();
 }
@@ -150,13 +150,13 @@ if ($user['user_role'] === 'doctor' && !$user['is_approved']) {
         // Correct redirect paths from root
        
         $redirectMap = [
-            'patient'   => '/healthConnect/views/auth/patient-dashboard.php',
-            'doctor'    => '/healthConnect/views/auth/doctor-dashboard.php',
-            'volunteer' => '/healthConnect/views/auth/volunteer-dashboard.php',
-            'admin'     => '/healthConnect/views/auth/admin-dashboard.php'
+            'patient'   => '/~foureiratou.idi/healthConnect/views/auth/patient-dashboard.php',
+            'doctor'    => '/~foureiratou.idi/healthConnect/views/auth/doctor-dashboard.php',
+            'volunteer' => '/~foureiratou.idi/healthConnect/views/auth/volunteer-dashboard.php',
+            'admin'     => '/~foureiratou.idi/healthConnect/views/auth/admin-dashboard.php'
         ];
 
-        $redirect = $redirectMap[$user['user_role']] ?? '/healthConnect/views/auth/patient-dashboard.php';
+        $redirect = $redirectMap[$user['user_role']] ?? '/~foureiratou.idi/healthConnect/views/auth/patient-dashboard.php';
 
         echo json_encode([
             'success' => true,
