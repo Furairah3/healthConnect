@@ -1,11 +1,13 @@
 <?php
 // healthconnect/views/auth/register.php
 
-// // Prevent direct access
-// if (basename($_SERVER['PHP_SELF']) == basename(__FILE__)) {
-//     header("Location: ../../index.php");
-//     exit();
-// }
+// Start session first
+session_start();
+
+// Generate CSRF token if not exists
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 require_once '../../app/config/database.php';
 
@@ -33,82 +35,27 @@ if (!in_array($selected_role, $valid_roles)) {
             background: linear-gradient(135deg, #f5f7ff 0%, #e3e9ff 100%);
             padding: 40px 0;
         }
-        <style>
-/* Terms Modal Styling */
-#termsModal .modal-header {
-    background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
-}
-
-#privacyModal .modal-header {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.modal-content {
-    border-radius: 15px;
-    border: none;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-}
-
-.modal-body {
-    max-height: 60vh;
-    overflow-y: auto;
-    padding: 25px;
-}
-
-.modal-body h6 {
-    font-weight: 600;
-    padding-bottom: 8px;
-    border-bottom: 2px solid currentColor;
-}
-
-.modal-body ul {
-    padding-left: 20px;
-}
-
-.modal-body li {
-    margin-bottom: 8px;
-    line-height: 1.5;
-}
-
-/* Terms checkbox styling */
-.form-check-input:checked {
-    background-color: #4361ee;
-    border-color: #4361ee;
-}
-
-.form-check-input:focus {
-    border-color: #4361ee;
-    box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
-}
-
-/* Links in terms checkbox */
-.form-check-label a {
-    text-decoration: none;
-    transition: all 0.3s;
-}
-
-.form-check-label a:hover {
-    text-decoration: underline;
-    transform: translateY(-1px);
-}
-</style>
+        
         .register-card {
             border: none;
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
         }
+        
         .register-header {
             background: var(--primary-color);
             color: white;
             padding: 30px;
             text-align: center;
         }
+        
         .role-selector {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
         }
+        
         .role-option {
             flex: 1;
             text-align: center;
@@ -118,38 +65,46 @@ if (!in_array($selected_role, $valid_roles)) {
             cursor: pointer;
             transition: all 0.3s;
         }
+        
         .role-option:hover {
             border-color: var(--primary-color);
             background: rgba(67, 97, 238, 0.05);
         }
+        
         .role-option.selected {
             border-color: var(--primary-color);
             background: rgba(67, 97, 238, 0.1);
         }
+        
         .form-label {
             font-weight: 500;
             margin-bottom: 5px;
         }
+        
         .form-control, .form-select {
             border-radius: 8px;
             padding: 12px 15px;
             border: 2px solid #dee2e6;
         }
+        
         .form-control:focus, .form-select:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
         }
+        
         .password-strength {
             height: 5px;
             border-radius: 3px;
             margin-top: 5px;
             background: #e9ecef;
         }
+        
         .password-strength-bar {
             height: 100%;
             border-radius: 3px;
             transition: width 0.3s;
         }
+        
         .upload-area {
             border: 2px dashed #dee2e6;
             border-radius: 10px;
@@ -158,17 +113,78 @@ if (!in_array($selected_role, $valid_roles)) {
             cursor: pointer;
             transition: all 0.3s;
         }
+        
         .upload-area:hover {
             border-color: var(--primary-color);
             background: rgba(67, 97, 238, 0.05);
         }
+        
         .upload-area.dragover {
             border-color: var(--primary-color);
             background: rgba(67, 97, 238, 0.1);
         }
+        
         .file-info {
             margin-top: 10px;
             font-size: 14px;
+        }
+        
+        /* Terms Modal Styling */
+        #termsModal .modal-header {
+            background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        }
+
+        #privacyModal .modal-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .modal-body {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 25px;
+        }
+
+        .modal-body h6 {
+            font-weight: 600;
+            padding-bottom: 8px;
+            border-bottom: 2px solid currentColor;
+        }
+
+        .modal-body ul {
+            padding-left: 20px;
+        }
+
+        .modal-body li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        /* Terms checkbox styling */
+        .form-check-input:checked {
+            background-color: #4361ee;
+            border-color: #4361ee;
+        }
+
+        .form-check-input:focus {
+            border-color: #4361ee;
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+        }
+
+        /* Links in terms checkbox */
+        .form-check-label a {
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .form-check-label a:hover {
+            text-decoration: underline;
+            transform: translateY(-1px);
         }
     </style>
 </head>
@@ -290,7 +306,7 @@ if (!in_array($selected_role, $valid_roles)) {
                                     </div>
                                 </div>
 
-                                                                <!-- Terms and Conditions -->
+                                <!-- Terms and Conditions -->
                                 <div class="mb-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="terms" name="terms" required>
@@ -335,35 +351,154 @@ if (!in_array($selected_role, $valid_roles)) {
         </div>
     </div>
 
-    <!-- Terms Modal -->
-    <div class="modal fade" id="termsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <!-- Terms of Service Modal -->
+    <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Terms of Service</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="termsModalLabel">
+                        <i class="fas fa-file-contract me-2"></i> HealthConnect Terms of Service
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <h6>1. Acceptance of Terms</h6>
-                    <p>By accessing HealthConnect, you agree to these terms...</p>
-                    <!-- Add more terms content -->
+                    <div class="mb-4">
+                        <p class="text-muted"><small>Last Updated: <?php echo date('F j, Y'); ?></small></p>
+                    </div>
+                    
+                    <h6 class="text-primary mb-3">1. Acceptance of Terms</h6>
+                    <p>By accessing and using HealthConnect, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                    
+                    <h6 class="text-primary mb-3">2. Medical Disclaimer</h6>
+                    <p><strong>Important:</strong> HealthConnect is a platform connecting patients with healthcare volunteers and professionals. This service is <strong>NOT a substitute for professional medical advice, diagnosis, or treatment</strong>.</p>
+                    <ul>
+                        <li>Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition</li>
+                        <li>Never disregard professional medical advice or delay in seeking it because of something you have read on this platform</li>
+                        <li>In case of emergency, call your local emergency services immediately</li>
+                    </ul>
+                    
+                    <h6 class="text-primary mb-3">3. User Responsibilities</h6>
+                    <p>As a user, you agree to:</p>
+                    <ul>
+                        <li>Provide accurate and complete information</li>
+                        <li>Maintain the confidentiality of your account</li>
+                        <li>Use the service only for lawful purposes</li>
+                        <li>Not share medical advice that you are not qualified to give</li>
+                        <li>Report any suspicious or inappropriate content</li>
+                    </ul>
+                    
+                    <h6 class="text-primary mb-3">4. Volunteer/Professional Guidelines</h6>
+                    <p>Healthcare volunteers and professionals must:</p>
+                    <ul>
+                        <li>Provide advice within their scope of practice</li>
+                        <li>Clearly state their qualifications and limitations</li>
+                        <li>Maintain patient confidentiality</li>
+                        <li>Not provide diagnosis without proper examination</li>
+                        <li>Refer to appropriate medical services when needed</li>
+                    </ul>
+                    
+                    <h6 class="text-primary mb-3">5. Limitation of Liability</h6>
+                    <p>HealthConnect and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service.</p>
+                    
+                    <h6 class="text-primary mb-3">6. Modifications to Terms</h6>
+                    <p>We reserve the right to modify these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.</p>
+                    
+                    <div class="alert alert-warning mt-4">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Emergency Notice:</strong> This platform is for general health advice only. For medical emergencies, please contact your local emergency services immediately.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                        <i class="fas fa-check me-1"></i> I Understand
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Privacy Modal -->
-    <div class="modal fade" id="privacyModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <!-- Privacy Policy Modal -->
+    <div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Privacy Policy</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="privacyModalLabel">
+                        <i class="fas fa-shield-alt me-2"></i> HealthConnect Privacy Policy
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <h6>Data Collection and Use</h6>
-                    <p>We collect your information to provide healthcare services...</p>
-                    <!-- Add more privacy content -->
+                    <div class="mb-4">
+                        <p class="text-muted"><small>Last Updated: <?php echo date('F j, Y'); ?></small></p>
+                    </div>
+                    
+                    <h6 class="text-success mb-3">1. Information We Collect</h6>
+                    <p>We collect information to provide better services to our users:</p>
+                    <ul>
+                        <li><strong>Personal Information:</strong> Name, email address, contact information</li>
+                        <li><strong>Health Information:</strong> Medical requests, symptoms, health concerns (shared voluntarily)</li>
+                        <li><strong>Professional Information:</strong> Qualifications, certifications (for healthcare providers)</li>
+                        <li><strong>Usage Data:</strong> How you interact with our platform</li>
+                    </ul>
+                    
+                    <h6 class="text-success mb-3">2. How We Use Your Information</h6>
+                    <p>Your information is used to:</p>
+                    <ul>
+                        <li>Connect patients with appropriate healthcare volunteers</li>
+                        <li>Improve our services and user experience</li>
+                        <li>Ensure platform security and prevent fraud</li>
+                        <li>Communicate important updates about our services</li>
+                        <li>Comply with legal obligations</li>
+                    </ul>
+                    
+                    <h6 class="text-success mb-3">3. Medical Data Protection</h6>
+                    <p>We take extra precautions with health information:</p>
+                    <ul>
+                        <li>Health data is encrypted in transit and at rest</li>
+                        <li>Access is restricted to authorized personnel only</li>
+                        <li>We follow healthcare data protection standards</li>
+                        <li>You can request deletion of your health data</li>
+                    </ul>
+                    
+                    <h6 class="text-success mb-3">4. Data Sharing</h6>
+                    <p>We do NOT sell your personal or health information. We may share data:</p>
+                    <ul>
+                        <li>With healthcare volunteers responding to your requests</li>
+                        <li>When required by law or legal process</li>
+                        <li>To protect the rights and safety of our users</li>
+                        <li>With service providers under strict confidentiality agreements</li>
+                    </ul>
+                    
+                    <h6 class="text-success mb-3">5. Your Rights</h6>
+                    <p>You have the right to:</p>
+                    <ul>
+                        <li>Access your personal information</li>
+                        <li>Correct inaccurate data</li>
+                        <li>Request deletion of your data</li>
+                        <li>Opt-out of non-essential communications</li>
+                        <li>Download your data in a portable format</li>
+                    </ul>
+                    
+                    <h6 class="text-success mb-3">6. Security Measures</h6>
+                    <p>We implement security measures including:</p>
+                    <ul>
+                        <li>Encryption of sensitive data</li>
+                        <li>Regular security audits</li>
+                        <li>Access controls and authentication</li>
+                        <li>Secure data backup procedures</li>
+                    </ul>
+                    
+                    <div class="alert alert-info mt-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Contact Us:</strong> For privacy-related questions, contact our Data Protection Officer at privacy@healthconnect.example.com
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                        <i class="fas fa-check me-1"></i> I Understand
+                    </button>
                 </div>
             </div>
         </div>
@@ -450,219 +585,6 @@ if (!in_array($selected_role, $valid_roles)) {
                 selectRole('<?php echo $selected_role; ?>');
             });
         <?php endif; ?>
-
-    <script>
-// Auto-scroll to top when modal opens
-document.addEventListener('DOMContentLoaded', function() {
-    var termsModal = document.getElementById('termsModal');
-    var privacyModal = document.getElementById('privacyModal');
-    
-    if (termsModal) {
-        termsModal.addEventListener('show.bs.modal', function() {
-            setTimeout(() => {
-                this.querySelector('.modal-body').scrollTop = 0;
-            }, 100);
-        });
-    }
-    
-    if (privacyModal) {
-        privacyModal.addEventListener('show.bs.modal', function() {
-            setTimeout(() => {
-                this.querySelector('.modal-body').scrollTop = 0;
-            }, 100);
-        });
-    }
-    
-    // Mark checkbox as invalid if user tries to submit without agreeing
-    var form = document.querySelector('form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            var termsCheckbox = document.getElementById('terms');
-            if (!termsCheckbox.checked) {
-                e.preventDefault();
-                termsCheckbox.classList.add('is-invalid');
-                
-                // Scroll to checkbox
-                termsCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // Shake animation
-                termsCheckbox.parentElement.classList.add('shake-animation');
-                setTimeout(() => {
-                    termsCheckbox.parentElement.classList.remove('shake-animation');
-                }, 500);
-            }
-        });
-    }
-});
-
-// Add CSS for shake animation
-var style = document.createElement('style');
-style.textContent = `
-    .shake-animation {
-        animation: shake 0.5s;
-    }
-    
-    @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-        20%, 40%, 60%, 80% { transform: translateX(5px); }
-    }
-`;
-document.head.appendChild(style);
-</script>
     </script>
-
-<!-- Terms of Service Modal -->
-<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="termsModalLabel">
-                    <i class="fas fa-file-contract me-2"></i> HealthConnect Terms of Service
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-4">
-                    <p class="text-muted"><small>Last Updated: <?php echo date('F j, Y'); ?></small></p>
-                </div>
-                
-                <h6 class="text-primary mb-3">1. Acceptance of Terms</h6>
-                <p>By accessing and using HealthConnect, you accept and agree to be bound by the terms and provision of this agreement.</p>
-                
-                <h6 class="text-primary mb-3">2. Medical Disclaimer</h6>
-                <p><strong>Important:</strong> HealthConnect is a platform connecting patients with healthcare volunteers and professionals. This service is <strong>NOT a substitute for professional medical advice, diagnosis, or treatment</strong>.</p>
-                <ul>
-                    <li>Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition</li>
-                    <li>Never disregard professional medical advice or delay in seeking it because of something you have read on this platform</li>
-                    <li>In case of emergency, call your local emergency services immediately</li>
-                </ul>
-                
-                <h6 class="text-primary mb-3">3. User Responsibilities</h6>
-                <p>As a user, you agree to:</p>
-                <ul>
-                    <li>Provide accurate and complete information</li>
-                    <li>Maintain the confidentiality of your account</li>
-                    <li>Use the service only for lawful purposes</li>
-                    <li>Not share medical advice that you are not qualified to give</li>
-                    <li>Report any suspicious or inappropriate content</li>
-                </ul>
-                
-                <h6 class="text-primary mb-3">4. Volunteer/Professional Guidelines</h6>
-                <p>Healthcare volunteers and professionals must:</p>
-                <ul>
-                    <li>Provide advice within their scope of practice</li>
-                    <li>Clearly state their qualifications and limitations</li>
-                    <li>Maintain patient confidentiality</li>
-                    <li>Not provide diagnosis without proper examination</li>
-                    <li>Refer to appropriate medical services when needed</li>
-                </ul>
-                
-                <h6 class="text-primary mb-3">5. Limitation of Liability</h6>
-                <p>HealthConnect and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service.</p>
-                
-                <h6 class="text-primary mb-3">6. Modifications to Terms</h6>
-                <p>We reserve the right to modify these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.</p>
-                
-                <div class="alert alert-warning mt-4">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Emergency Notice:</strong> This platform is for general health advice only. For medical emergencies, please contact your local emergency services immediately.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
-                    <i class="fas fa-check me-1"></i> I Understand
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Privacy Policy Modal -->
-<div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="privacyModalLabel">
-                    <i class="fas fa-shield-alt me-2"></i> HealthConnect Privacy Policy
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-4">
-                    <p class="text-muted"><small>Last Updated: <?php echo date('F j, Y'); ?></small></p>
-                </div>
-                
-                <h6 class="text-success mb-3">1. Information We Collect</h6>
-                <p>We collect information to provide better services to our users:</p>
-                <ul>
-                    <li><strong>Personal Information:</strong> Name, email address, contact information</li>
-                    <li><strong>Health Information:</strong> Medical requests, symptoms, health concerns (shared voluntarily)</li>
-                    <li><strong>Professional Information:</strong> Qualifications, certifications (for healthcare providers)</li>
-                    <li><strong>Usage Data:</strong> How you interact with our platform</li>
-                </ul>
-                
-                <h6 class="text-success mb-3">2. How We Use Your Information</h6>
-                <p>Your information is used to:</p>
-                <ul>
-                    <li>Connect patients with appropriate healthcare volunteers</li>
-                    <li>Improve our services and user experience</li>
-                    <li>Ensure platform security and prevent fraud</li>
-                    <li>Communicate important updates about our services</li>
-                    <li>Comply with legal obligations</li>
-                </ul>
-                
-                <h6 class="text-success mb-3">3. Medical Data Protection</h6>
-                <p>We take extra precautions with health information:</p>
-                <ul>
-                    <li>Health data is encrypted in transit and at rest</li>
-                    <li>Access is restricted to authorized personnel only</li>
-                    <li>We follow healthcare data protection standards</li>
-                    <li>You can request deletion of your health data</li>
-                </ul>
-                
-                <h6 class="text-success mb-3">4. Data Sharing</h6>
-                <p>We do NOT sell your personal or health information. We may share data:</p>
-                <ul>
-                    <li>With healthcare volunteers responding to your requests</li>
-                    <li>When required by law or legal process</li>
-                    <li>To protect the rights and safety of our users</li>
-                    <li>With service providers under strict confidentiality agreements</li>
-                </ul>
-                
-                <h6 class="text-success mb-3">5. Your Rights</h6>
-                <p>You have the right to:</p>
-                <ul>
-                    <li>Access your personal information</li>
-                    <li>Correct inaccurate data</li>
-                    <li>Request deletion of your data</li>
-                    <li>Opt-out of non-essential communications</li>
-                    <li>Download your data in a portable format</li>
-                </ul>
-                
-                <h6 class="text-success mb-3">6. Security Measures</h6>
-                <p>We implement security measures including:</p>
-                <ul>
-                    <li>Encryption of sensitive data</li>
-                    <li>Regular security audits</li>
-                    <li>Access controls and authentication</li>
-                    <li>Secure data backup procedures</li>
-                </ul>
-                
-                <div class="alert alert-info mt-4">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Contact Us:</strong> For privacy-related questions, contact our Data Protection Officer at privacy@healthconnect.example.com
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success" data-bs-dismiss="modal">
-                    <i class="fas fa-check me-1"></i> I Understand
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 </body>
 </html>
