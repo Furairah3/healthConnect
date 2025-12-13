@@ -12,7 +12,9 @@ if (!isset($_SESSION['user_id'])) {
 // Get request ID from URL
 $request_id = $_GET['id'] ?? 0;
 if (!$request_id) {
-    header('Location: patient-dashboard.php?error=invalid_request');
+    // Redirect to appropriate dashboard based on role
+    $dashboard = $_SESSION['user_role'] . '-dashboard.php';
+    header('Location: ' . $dashboard . '?error=invalid_request');
     exit();
 }
 
@@ -23,8 +25,8 @@ $user_name = $_SESSION['user_name'];
 // Check if user has permission to view this request
 try {
     // Get request details
-    $sql = "SELECT mr.*, 
-                   u.full_name as patient_name, 
+    $sql = "SELECT mr.*,
+                   u.full_name as patient_name,
                    u.email_address as patient_email,
                    r.full_name as responder_name,
                    a.full_name as admin_name
@@ -33,19 +35,21 @@ try {
             LEFT JOIN hc_users r ON mr.responded_by_user_id = r.user_id
             LEFT JOIN hc_users a ON mr.admin_assigned_by = a.user_id
             WHERE mr.request_id = :request_id";
-    
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':request_id' => $request_id]);
     $request = $stmt->fetch();
-    
+
     if (!$request) {
-        header('Location: patient-dashboard.php?error=request_not_found');
+        // Redirect to appropriate dashboard
+        $dashboard = $_SESSION['user_role'] . '-dashboard.php';
+        header('Location: ' . $dashboard . '?error=request_not_found');
         exit();
     }
-    
+
     // Check permissions
     $can_view = false;
-    
+
     if ($user_role === 'admin') {
         $can_view = true; // Admin can view all requests
     } elseif ($user_role === 'doctor' || $user_role === 'volunteer') {
@@ -59,9 +63,10 @@ try {
             $can_view = true;
         }
     }
-    
+
     if (!$can_view) {
-        header('Location: dashboard.php?error=no_permission');
+        $dashboard = $_SESSION['user_role'] . '-dashboard.php';
+        header('Location: ' . $dashboard . '?error=no_permission');
         exit();
     }
     
@@ -89,7 +94,8 @@ try {
     
 } catch (Exception $e) {
     error_log("Request view error: " . $e->getMessage());
-    header('Location: dashboard.php?error=server_error');
+    $dashboard = $_SESSION['user_role'] . '-dashboard.php';
+    header('Location: ' . $dashboard . '?error=server_error');
     exit();
 }
 
@@ -322,7 +328,7 @@ function getUrgencyBadge($urgency) {
                     <i class="fas fa-user-circle me-1"></i>
                     <?php echo htmlspecialchars($user_name); ?> (<?php echo ucfirst($user_role); ?>)
                 </span>
-                <a href="dashboard.php" class="btn btn-outline-primary btn-sm me-2">
+                <a href="<?php echo $user_role . '-dashboard.php'; ?>" class="btn btn-outline-primary btn-sm me-2">
                     <i class="fas fa-home me-1"></i> Dashboard
                 </a>
                 <a href="logout.php" class="btn btn-outline-danger btn-sm">
