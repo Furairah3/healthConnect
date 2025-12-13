@@ -324,28 +324,28 @@ $my_responses = $stmt->fetchAll();
                     </div>
                 </div>
                 <div class="col-lg-6 text-end">
-    <div class="mb-4">
-        <a href="volunteer-info.php" 
-           class="volunteer-badge me-3" 
-           style="text-decoration: none; transition: all 0.3s;"
-           onmouseover="this.style.opacity='0.8'" 
-           onmouseout="this.style.opacity='1'">
-            <i class="fas fa-hands-helping me-1"></i> Healthcare Volunteer
-        </a>
-        <a href="profile.php" 
-           class="btn btn-outline-light btn-lg px-4 me-2"
-           style="transition: all 0.3s;">
-            <i class="fas fa-edit me-2"></i> Update Profile
-        </a>
-    </div>
-    <a href="respond-requests.php" 
-       class="btn btn-light btn-lg px-4 shadow"
-       style="transition: all 0.3s;"
-       onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.15)'"
-       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)'">
-        <i class="fas fa-plus-circle me-2"></i> Help Someone Now
-    </a>
-</div>
+                    <div class="mb-4">
+                        <a href="volunteer-info.php" 
+                        class="volunteer-badge me-3" 
+                        style="text-decoration: none; transition: all 0.3s;"
+                        onmouseover="this.style.opacity='0.8'" 
+                        onmouseout="this.style.opacity='1'">
+                            <i class="fas fa-hands-helping me-1"></i> Healthcare Volunteer
+                        </a>
+                        <a href="profile.php" 
+                        class="btn btn-outline-light btn-lg px-4 me-2"
+                        style="transition: all 0.3s;">
+                            <i class="fas fa-edit me-2"></i> Update Profile
+                        </a>
+                    </div>
+                    <a href="respond-requests.php" 
+                    class="btn btn-light btn-lg px-4 shadow"
+                    style="transition: all 0.3s;"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.15)'"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)'">
+                        <i class="fas fa-plus-circle me-2"></i> Help Someone Now
+                    </a>
+                </div>
             </div>
         </div>
     </div>
