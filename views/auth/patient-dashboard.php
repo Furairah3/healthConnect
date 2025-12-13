@@ -420,7 +420,7 @@ $closed_requests = array_filter($requests, function($req) {
                                                     By <?php echo htmlspecialchars($request['responded_by_name']); ?>
                                                 </small>
                                             <?php endif; ?>
-                                            <a href="view-request.php?id=<?php echo $request['request_id']; ?>" 
+                                            <a href="/~foureiratou.idi/healthConnect/views/auth/view-request.php?id=<?php echo $request['request_id']; ?>" 
                                                class="btn btn-outline-primary btn-sm">
                                                 <i class="fas fa-eye me-1"></i> View Details
                                             </a>
