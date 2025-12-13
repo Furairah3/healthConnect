@@ -57,17 +57,17 @@ try {
         if ($request['request_status'] === 'pending' || $request['responded_by_user_id'] == $user_id) {
             $can_view = true;
         }
-    }  elseif ($user_role === 'patient') {
-    // Patients can view their own requests
-    if ($request['patient_id'] == $user_id) {
-        $can_view = true;
+    } elseif ($user_role === 'patient') {
+        // Patients can view their own requests
+        if ($request['patient_id'] == $user_id) {
+            $can_view = true;
+        }
+        // For development/testing, also allow viewing sample requests (IDs 1-18)
+        elseif (in_array($request_id, range(1, 18)) && $_SERVER['HTTP_HOST'] == '169.239.251.102:341') {
+            $can_view = true;
+            error_log("Patient " . $user_id . " viewing sample request " . $request_id . " for testing");
+        }
     }
-    // For development/testing, also allow viewing sample requests (IDs 1-18)
-    elseif (in_array($request_id, range(1, 18)) && $_SERVER['HTTP_HOST'] == '169.239.251.102:341') {
-        $can_view = true;
-        error_log("Patient " . $user_id . " viewing sample request " . $request_id . " for testing");
-    }
-}
     if (!$can_view) {
         $dashboard = $_SESSION['user_role'] . '-dashboard.php';
         header('Location: ' . $dashboard . '?error=no_permission');
