@@ -371,7 +371,7 @@ $verification = $stmt->fetch();
                                         <p class="mb-0">
                                             If you have questions about the verification process, 
                                             please contact our support team at 
-                                            <a href="mailto:support@healthconnect.org" class="text-primary">support@healthconnect.org</a>
+                                            <a href="mailto:foureiratou.idi@ashesi.edu.gh" class="text-primary">support@healthconnect.org</a>
                                         </p>
                                     </div>
                                 </div>
@@ -387,7 +387,7 @@ $verification = $stmt->fetch();
                                     <a href="logout.php" class="btn btn-danger logout-btn">
                                         <i class="fas fa-sign-out-alt me-2"></i> Logout Now
                                     </a>
-                                    <a href="mailto:support@healthconnect.org" class="btn btn-outline-primary logout-btn">
+                                    <a href="mailto:foureiratou.idi@ashesi.edu.gh" class="btn btn-outline-primary logout-btn">
                                         <i class="fas fa-envelope me-2"></i> Contact Support
                                     </a>
                                     <button class="btn btn-outline-secondary logout-btn" onclick="location.reload()">
