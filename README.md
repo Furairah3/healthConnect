@@ -162,6 +162,27 @@ Front-end templates and pages.
 - `layouts/` – Base layout templates.
 
 ---
+# Database Tables and Views
+
+## **Tables**
+
+1. `hc_users` – User accounts (patients, volunteers, doctors, admins)  
+2. `hc_medical_requests` – Health consultation requests  
+3. `hc_doctor_verifications` – Doctor certificate verification  
+4. `hc_health_tips` – Health education articles  
+5. `hc_tip_likes` – Likes on health tips  
+6. `hc_training_resources` – Training materials for volunteers  
+7. `hc_activity_logs` – System activity tracking  
+8. `hc_user_sessions` – User login sessions  
+9. `hc_feedback` – Patient feedback on responses  
+10. `hc_forum_posts` – Community forum posts  
+11. `hc_forum_comments` – Comments on forum posts  
+
+## **Views** (not tables)
+
+12. `hc_platform_stats` – Platform statistics view  
+13. `hc_doctor_tips_stats` – Doctor tips statistics view  
+14. `hc_training_stats` – Volunteer training statistics view
 
 ## Project Status
 HealthConnect is a fully functional **Minimum Viable Product (MVP)** featuring:
