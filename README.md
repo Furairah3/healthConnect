@@ -145,6 +145,7 @@ The video demonstrates:
 ├── README.md                  # Project setup, features, documentation
 ├── debug.php                  # Debugging utilities (disable in production)
 └── index.php                  # Main application entry point
+
 ---
 
 ## Project Status
