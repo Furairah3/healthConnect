@@ -112,39 +112,55 @@ The video demonstrates:
 ---
 
 ## Repository Structure
-/
-├── api/
-│   ├── controllers/           # API endpoint handlers
-│   ├── middleware/            # Authentication, validation middleware
-│   ├── routes/                # Route definitions
-│   └── index.php              # API entry point
-├── app/
-│   ├── config/                # Configuration files
-│   ├── controllers/           # Main application controllers
-│   ├── models/                # Database models
-│   ├── libraries/             # Custom libraries/helpers
-│   └── core/                  # Core framework files
-├── assets/
-│   ├── css/                   # Stylesheets
-│   ├── js/                    # JavaScript files
-│   ├── images/                # Image assets
-│   └── fonts/                 # Font files
-├── uploads/
-│   ├── profiles/              # Profile pictures
-│   ├── documents/             # Uploaded documents
-│   ├── certificates/          # Doctor certificates
-│   └── temp/                  # Temporary uploads
-├── views/
-│   ├── patient/               # Patient-facing pages
-│   ├── doctor/                # Doctor dashboard pages
-│   ├── admin/                 # Admin panel pages
-│   ├── auth/                  # Login/registration pages
-│   ├── partials/              # Reusable components
-│   └── layouts/               # Base layout templates
-├── .htaccess                  # Apache rewrite rules, security headers
-├── README.md                  # Project setup, features, documentation
-├── debug.php                  # Debugging utilities (disable in production)
-└── index.php                  # Main application entry point
+# Project Directory Structure
+
+This is the directory structure of the project, organized by functionality.
+
+## **Root Structure**
+- `.htaccess` – Apache rewrite rules and security headers.  
+- `README.md` – Project documentation, setup instructions, and features.  
+- `debug.php` – Debugging utilities (disable in production).  
+- `index.php` – Main application entry point.
+
+## **Directories**
+
+### `api/`
+Contains all backend API-related code.
+- `controllers/` – Handles API endpoint logic.  
+- `middleware/` – Authentication and validation middleware.  
+- `routes/` – API route definitions.  
+- `index.php` – API entry point.
+
+### `app/`
+Core application logic and configuration.
+- `config/` – Configuration files.  
+- `controllers/` – Main application controllers.  
+- `models/` – Database models.  
+- `libraries/` – Custom libraries and helper functions.  
+- `core/` – Core framework files.
+
+### `assets/`
+Front-end static assets.
+- `css/` – Stylesheets.  
+- `js/` – JavaScript files.  
+- `images/` – Image assets.  
+- `fonts/` – Font files.
+
+### `uploads/`
+User-uploaded files and temporary storage.
+- `profiles/` – Profile pictures.  
+- `documents/` – Uploaded documents.  
+- `certificates/` – Doctor certificates.  
+- `temp/` – Temporary uploads.
+
+### `views/`
+Front-end templates and pages.
+- `patient/` – Patient-facing pages.  
+- `doctor/` – Doctor dashboard pages.  
+- `admin/` – Admin panel pages.  
+- `auth/` – Login and registration pages.  
+- `partials/` – Reusable components (headers, footers, etc.).  
+- `layouts/` – Base layout templates.
 
 ---
 
