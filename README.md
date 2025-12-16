@@ -112,7 +112,6 @@ The video demonstrates:
 ---
 
 ## Repository Structure
-# Project Directory Structure
 
 This is the directory structure of the project, organized by functionality.
 
