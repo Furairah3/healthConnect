@@ -112,3 +112,24 @@ The video demonstrates:
 ---
 
 ## Repository Structure
+
+---
+
+## Project Status
+HealthConnect is a fully functional **Minimum Viable Product (MVP)** featuring:
+- Secure authentication system
+- Role-based dashboards
+- Health request CRUD functionality
+- Doctor verification workflow
+- Admin approval system
+- Responsive and modern UI
+- Strong security foundation
+
+The system is ready for academic evaluation and future expansion.
+
+---
+
+## Author
+**Foureiratou ZAKARI YAOU IDI**  
+Computer Science  
+CS341 – Web Technologies
