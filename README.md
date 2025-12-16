@@ -19,7 +19,7 @@ The platform supports remote consultations, structured medical triage, health ed
 🔗 **Live URL:**  
 http://169.239.251.102:341/~foureiratou.idi/healthConnect
 
-> ⚠️ The server will remain active until the end of January 2026 as required.
+>  The server will remain active until the end of January 2026 as required.
 
 ---
 
