@@ -553,12 +553,12 @@ $activity = $activity_stmt->fetch();
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="my-requests.php">
+                        <a class="nav-link" href="create-request.php">
                             <i class="fas fa-plus-circle me-1"></i> New Request
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="my-requests.php">
+                        <a class="nav-link" href="create-request.php">
                             <i class="fas fa-history me-1"></i> My Requests
                         </a>
                     </li>
@@ -630,7 +630,7 @@ $activity = $activity_stmt->fetch();
                             <i class="fas fa-shield-alt me-1"></i> Secure & Private
                         </span>
                     </div>
-                    <a href="my-requests.php" 
+                    <a href="create-request.php" 
                     id="helpNowBtn"
                     class="btn btn-light btn-lg px-4 shadow btn-lift">
                         <i class="fas fa-stethoscope me-2"></i> Get Medical Help
@@ -699,7 +699,7 @@ $activity = $activity_stmt->fetch();
                                 <h4 class="mb-0"><i class="fas fa-history text-primary me-2"></i> Recent Requests</h4>
                                 <p class="text-muted mb-0 mt-1">Your recent medical consultations</p>
                             </div>
-                            <a href="my-requests.php" class="btn btn-primary btn-lift">
+                            <a href="create-request.php" class="btn btn-primary btn-lift">
                                 <i class="fas fa-list me-1"></i> View All
                             </a>
                         </div>
@@ -712,7 +712,7 @@ $activity = $activity_stmt->fetch();
                                 </div>
                                 <h5>No requests yet</h5>
                                 <p class="text-muted mb-0">Start by creating your first medical request.</p>
-                                <a href="my-requests.php" class="btn btn-primary mt-3 btn-lift">
+                                <a href="create-request.php" class="btn btn-primary mt-3 btn-lift">
                                     <i class="fas fa-plus-circle me-2"></i> Create Request
                                 </a>
                             </div>
@@ -807,7 +807,7 @@ $activity = $activity_stmt->fetch();
                     <div class="card-body p-4">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <a href="my-requests.php" class="card quick-action-card text-decoration-none">
+                                <a href="create-request.php" class="card quick-action-card text-decoration-none">
                                     <div class="card-body text-center p-4">
                                         <div class="mb-3">
                                             <i class="fas fa-stethoscope fa-3x text-primary"></i>
@@ -818,7 +818,7 @@ $activity = $activity_stmt->fetch();
                                 </a>
                             </div>
                             <div class="col-md-6">
-                                <a href="my-requests.php" class="card quick-action-card text-decoration-none">
+                                <a href="create-request.php" class="card quick-action-card text-decoration-none">
                                     <div class="card-body text-center p-4">
                                         <div class="mb-3">
                                             <i class="fas fa-history fa-3x text-info"></i>
