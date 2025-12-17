@@ -18,7 +18,9 @@ $stats_sql = "SELECT
     (SELECT COUNT(*) FROM hc_users WHERE user_role = 'doctor' AND is_approved = 1) as doctors,
     (SELECT COUNT(*) FROM hc_medical_requests) as total_requests,
     (SELECT COUNT(*) FROM hc_doctor_verifications WHERE verification_status = 'pending_review') as pending_doctors,
-    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'pending') as pending_requests";
+    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'pending') as pending_requests,
+    (SELECT COUNT(*) FROM hc_forum_posts) as forum_posts,
+    (SELECT COUNT(*) FROM hc_health_tips) as total_tips";
 
 $stmt = $pdo->query($stats_sql);
 $stats = $stmt->fetch();
@@ -40,13 +42,35 @@ $tips_sql = "SELECT tip_id, tip_title, tip_date FROM hc_health_tips
 $tips_stmt = $pdo->query($tips_sql);
 $recent_tips = $tips_stmt->fetchAll();
 
-// Get system activity
+// Get recent forum posts
+$forum_sql = "SELECT fp.post_id, fp.title, u.full_name, fp.created_at 
+              FROM hc_forum_posts fp 
+              JOIN hc_users u ON fp.author_id = u.user_id 
+              ORDER BY fp.created_at DESC LIMIT 5";
+$forum_stmt = $pdo->query($forum_sql);
+$recent_posts = $forum_stmt->fetchAll();
+
+// Get system activity - FIXED: Removed reference to non-existent table
 $activity_sql = "SELECT 
     (SELECT COUNT(*) FROM hc_users WHERE DATE(date_created) = CURDATE()) as today_users,
     (SELECT COUNT(*) FROM hc_medical_requests WHERE DATE(request_date) = CURDATE()) as today_requests,
-    (SELECT COUNT(*) FROM hc_medical_responses WHERE DATE(response_date) = CURDATE()) as today_responses";
+    (SELECT COUNT(*) FROM hc_medical_requests WHERE responded_by_user_id IS NOT NULL AND DATE(request_date) = CURDATE()) as today_responses,
+    (SELECT COUNT(*) FROM hc_forum_posts WHERE DATE(created_at) = CURDATE()) as today_forum_posts";
+
 $activity_stmt = $pdo->query($activity_sql);
 $activity = $activity_stmt->fetch();
+
+// Get request statistics for reports
+$reports_sql = "SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN urgency_level = 'high' THEN 1 ELSE 0 END) as high_priority,
+    SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN request_status = 'responded' THEN 1 ELSE 0 END) as responded,
+    SUM(CASE WHEN request_status = 'closed' THEN 1 ELSE 0 END) as closed,
+    COUNT(DISTINCT patient_id) as unique_patients
+    FROM hc_medical_requests";
+$reports_stmt = $pdo->query($reports_sql);
+$report_stats = $reports_stmt->fetch();
 ?>
 
 <!DOCTYPE html>
@@ -57,6 +81,7 @@ $activity = $activity_stmt->fetch();
     <title>Admin Dashboard - HealthConnect</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
@@ -66,6 +91,8 @@ $activity = $activity_stmt->fetch();
             --admin-accent: #a370f7;
             --admin-dark: #2e1065;
             --admin-light: #f0e7ff;
+            --community-color: #20c997;
+            --reports-color: #fd7e14;
             --animation-speed: 0.5s;
             --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
@@ -118,11 +145,6 @@ $activity = $activity_stmt->fetch();
             100% { background-position: 0% 50%; }
         }
         
-        @keyframes rotate3D {
-            0% { transform: perspective(1000px) rotateY(0deg); }
-            100% { transform: perspective(1000px) rotateY(360deg); }
-        }
-        
         .admin-nav {
             background: linear-gradient(135deg, var(--admin-primary) 0%, var(--admin-secondary) 100%);
             background-size: 200% 200%;
@@ -172,41 +194,19 @@ $activity = $activity_stmt->fetch();
             opacity: 0;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
             min-height: 180px;
+            cursor: pointer;
         }
         
         .stat-card:nth-child(1) { animation-delay: 0.1s; }
         .stat-card:nth-child(2) { animation-delay: 0.2s; }
         .stat-card:nth-child(3) { animation-delay: 0.3s; }
         .stat-card:nth-child(4) { animation-delay: 0.4s; }
-        
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-            transform: translateX(-100%);
-            transition: transform 0.8s;
-        }
-        
-        .stat-card:hover::before {
-            transform: translateX(100%);
-        }
+        .stat-card:nth-child(5) { animation-delay: 0.5s; }
+        .stat-card:nth-child(6) { animation-delay: 0.6s; }
         
         .stat-card:hover {
             transform: translateY(-15px) scale(1.02);
             box-shadow: 0 25px 50px rgba(0,0,0,0.15);
-        }
-        
-        .stat-card h3 {
-            font-size: 2.8rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-            position: relative;
-            display: inline-block;
         }
         
         .stat-card .counter {
@@ -237,6 +237,16 @@ $activity = $activity_stmt->fetch();
             background-size: 200% 200%;
             animation: gradientShift 5s ease infinite;
         }
+        .stat-card.forum { 
+            background: linear-gradient(135deg, var(--community-color), #198754, #0dcaf0);
+            background-size: 200% 200%;
+            animation: gradientShift 5s ease infinite;
+        }
+        .stat-card.tips { 
+            background: linear-gradient(135deg, #6610f2, #6f42c1, #a370f7);
+            background-size: 200% 200%;
+            animation: gradientShift 5s ease infinite;
+        }
         
         .stat-icon {
             position: absolute;
@@ -245,17 +255,6 @@ $activity = $activity_stmt->fetch();
             font-size: 2.5rem;
             opacity: 0.3;
             animation: float 4s ease-in-out infinite;
-        }
-        
-        .stat-card.patients .stat-icon { animation-delay: 0.1s; }
-        .stat-card.volunteers .stat-icon { animation-delay: 0.2s; }
-        .stat-card.doctors .stat-icon { animation-delay: 0.3s; }
-        .stat-card.requests .stat-icon { animation-delay: 0.4s; }
-        
-        .stat-card small {
-            opacity: 0.9;
-            font-weight: 500;
-            letter-spacing: 0.5px;
         }
         
         .admin-badge {
@@ -282,24 +281,6 @@ $activity = $activity_stmt->fetch();
             overflow: hidden;
         }
         
-        .action-btn::after {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: -100%;
-            background: linear-gradient(90deg, 
-                transparent, 
-                rgba(255,255,255,0.3), 
-                transparent);
-            transition: left 0.5s;
-        }
-        
-        .action-btn:hover::after {
-            left: 100%;
-        }
-        
         .quick-action-card {
             transition: all 0.5s var(--ease-out);
             border: none;
@@ -311,33 +292,9 @@ $activity = $activity_stmt->fetch();
             position: relative;
         }
         
-        .quick-action-card:nth-child(1) { animation-delay: 0.2s; }
-        .quick-action-card:nth-child(2) { animation-delay: 0.3s; }
-        .quick-action-card:nth-child(3) { animation-delay: 0.4s; }
-        
         .quick-action-card:hover {
             transform: translateY(-10px) scale(1.02);
             box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-        }
-        
-        .quick-action-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, 
-                var(--admin-primary), 
-                var(--admin-accent), 
-                var(--admin-secondary));
-            transform-origin: left;
-            transform: scaleX(0);
-            transition: transform 0.5s;
-        }
-        
-        .quick-action-card:hover::before {
-            transform: scaleX(1);
         }
         
         .card-header {
@@ -346,18 +303,6 @@ $activity = $activity_stmt->fetch();
             padding: 25px 30px;
             position: relative;
             overflow: hidden;
-        }
-        
-        .card-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-            transform: translateX(-100%);
-            animation: shimmer 3s infinite;
         }
         
         .pending-badge {
@@ -374,20 +319,6 @@ $activity = $activity_stmt->fetch();
             display: inline-block;
         }
         
-        .pending-badge::after {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, #ff4757, #ff6b81);
-            border-radius: 50px;
-            z-index: -1;
-            opacity: 0.5;
-            animation: pulse 2s infinite;
-        }
-        
         .list-group-item {
             border: none;
             padding: 15px 20px;
@@ -402,30 +333,6 @@ $activity = $activity_stmt->fetch();
             background: linear-gradient(90deg, rgba(111, 66, 193, 0.1), rgba(255,255,255,0.1));
             transform: translateX(5px);
             padding-left: 25px;
-        }
-        
-        .list-group-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: var(--admin-primary);
-            transform: scaleY(0);
-            transition: transform 0.3s;
-        }
-        
-        .list-group-item:hover::before {
-            transform: scaleY(1);
-        }
-        
-        .list-group-item i {
-            transition: all 0.3s;
-        }
-        
-        .list-group-item:hover i {
-            transform: scale(1.2);
         }
         
         .user-avatar {
@@ -470,10 +377,6 @@ $activity = $activity_stmt->fetch();
             transform: translateX(5px);
         }
         
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-        
         .activity-icon {
             width: 40px;
             height: 40px;
@@ -493,17 +396,13 @@ $activity = $activity_stmt->fetch();
         .activity-icon.users { background: rgba(13, 202, 240, 0.1); color: #0dcaf0; }
         .activity-icon.requests { background: rgba(255, 193, 7, 0.1); color: #ffc107; }
         .activity-icon.responses { background: rgba(32, 201, 151, 0.1); color: #20c997; }
+        .activity-icon.forum { background: rgba(32, 201, 151, 0.1); color: var(--community-color); }
         
         .activity-count {
             font-size: 1.8rem;
             font-weight: 700;
             color: var(--admin-dark);
             display: block;
-        }
-        
-        .activity-label {
-            font-size: 0.9rem;
-            color: #666;
         }
         
         .tip-card {
@@ -520,7 +419,34 @@ $activity = $activity_stmt->fetch();
             transform: translateX(5px);
         }
         
-        /* Floating elements */
+        .forum-card {
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(32, 201, 151, 0.05);
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            border-left: 4px solid var(--community-color);
+        }
+        
+        .forum-card:hover {
+            background: rgba(32, 201, 151, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .report-card {
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(253, 126, 20, 0.05);
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            border-left: 4px solid var(--reports-color);
+        }
+        
+        .report-card:hover {
+            background: rgba(253, 126, 20, 0.1);
+            transform: translateX(5px);
+        }
+        
         .floating-elements {
             position: fixed;
             top: 0;
@@ -555,7 +481,6 @@ $activity = $activity_stmt->fetch();
             }
         }
         
-        /* Button animations */
         .btn-lift {
             transition: all 0.3s;
         }
@@ -565,17 +490,6 @@ $activity = $activity_stmt->fetch();
             box-shadow: 0 10px 20px rgba(0,0,0,0.15);
         }
         
-        /* Page transitions */
-        .page-transition {
-            animation: pageFade 0.5s ease-out;
-        }
-        
-        @keyframes pageFade {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* Notification dot */
         .notification-dot {
             position: absolute;
             top: 5px;
@@ -591,6 +505,17 @@ $activity = $activity_stmt->fetch();
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.3); }
         }
+        
+        .metric-badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            margin-left: 5px;
+        }
+        
+        .high-priority { background: #dc3545; color: white; }
+        .medium-priority { background: #ffc107; color: black; }
+        .low-priority { background: #20c997; color: white; }
     </style>
 </head>
 <body>
@@ -618,18 +543,19 @@ $activity = $activity_stmt->fetch();
                     </div>
                     <div>
                         <h3 class="mb-1 fw-bold animate-charcter">
-                            HealthConnect Admin
+                            HealthConnect Admin Dashboard
                         </h3>
                         <small class="opacity-90">
                             <i class="fas fa-user me-1"></i> 
                             Welcome, <?php echo htmlspecialchars($user_name); ?>
+                            | <i class="fas fa-calendar me-1"></i> <?php echo date('F j, Y'); ?>
                         </small>
                     </div>
                 </div>
                 <div class="d-flex align-items-center">
                     <div class="me-4 position-relative">
                         <span class="admin-badge me-2 btn-lift">
-                            <i class="fas fa-user-shield me-2"></i> Super Administrator
+                            <i class="fas fa-user-shield me-2"></i> System Administrator
                         </span>
                         <?php if (($stats['pending_doctors'] ?? 0) > 0 || ($stats['pending_requests'] ?? 0) > 0): ?>
                             <span class="notification-dot"></span>
@@ -646,44 +572,64 @@ $activity = $activity_stmt->fetch();
     <!-- Quick Stats -->
     <div class="container mt-5">
         <div class="row">
-            <div class="col-md-3">
-                <div class="stat-card patients">
+            <div class="col-md-2">
+                <div class="stat-card patients" onclick="window.location.href='admin-users.php?filter=patients'">
                     <div class="stat-icon">
                         <i class="fas fa-user-injured"></i>
                     </div>
                     <div class="counter" data-target="<?php echo $stats['patients']; ?>">0</div>
                     <p class="mb-0 fw-semibold">Patients</p>
-                    <small>Registered users seeking help</small>
+                    <small>Registered users</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card volunteers">
+            <div class="col-md-2">
+                <div class="stat-card volunteers" onclick="window.location.href='admin-users.php?filter=volunteers'">
                     <div class="stat-icon">
                         <i class="fas fa-hands-helping"></i>
                     </div>
                     <div class="counter" data-target="<?php echo $stats['volunteers']; ?>">0</div>
                     <p class="mb-0 fw-semibold">Volunteers</p>
-                    <small>Active healthcare helpers</small>
+                    <small>Active helpers</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card doctors">
+            <div class="col-md-2">
+                <div class="stat-card doctors" onclick="window.location.href='admin-users.php?filter=doctors'">
                     <div class="stat-icon">
                         <i class="fas fa-user-md"></i>
                     </div>
                     <div class="counter" data-target="<?php echo $stats['doctors']; ?>">0</div>
                     <p class="mb-0 fw-semibold">Doctors</p>
-                    <small>Verified professionals</small>
+                    <small>Verified</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card requests">
+            <div class="col-md-2">
+                <div class="stat-card requests" onclick="window.location.href='admin-requests.php'">
                     <div class="stat-icon">
                         <i class="fas fa-file-medical"></i>
                     </div>
                     <div class="counter" data-target="<?php echo $stats['total_requests']; ?>">0</div>
                     <p class="mb-0 fw-semibold">Requests</p>
-                    <small>Total medical requests</small>
+                    <small>Total submissions</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card forum" onclick="window.location.href='community.php'">
+                    <div class="stat-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="counter" data-target="<?php echo $stats['forum_posts']; ?>">0</div>
+                    <p class="mb-0 fw-semibold">Forum Posts</p>
+                    <small>Community discussions</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card tips" onclick="window.location.href='admin-tips.php'">
+                    <div class="stat-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <div class="counter" data-target="<?php echo $stats['total_tips']; ?>">0</div>
+                    <p class="mb-0 fw-semibold">Health Tips</p>
+                    <small>Educational content</small>
                 </div>
             </div>
         </div>
@@ -692,7 +638,7 @@ $activity = $activity_stmt->fetch();
     <!-- Main Content -->
     <div class="container mt-4">
         <div class="row">
-            <!-- Left Column: Quick Actions -->
+            <!-- Left Column: Quick Actions & Activity -->
             <div class="col-md-4">
                 <div class="card shadow-sm mb-4 quick-action-card">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -741,8 +687,28 @@ $activity = $activity_stmt->fetch();
                                     </div>
                                 </div>
                                 <?php if ($stats['pending_requests'] > 0): ?>
-                                    <span class="pending-badge"><?php echo $stats['pending_requests']; ?> new</span>
+                                    <span class="pending-badge"><?php echo $stats['pending_requests']; ?> pending</span>
                                 <?php endif; ?>
+                            </a>
+                            <a href="community.php" class="list-group-item list-group-item-action d-flex align-items-center">
+                                <div class="user-avatar" style="background: linear-gradient(135deg, var(--community-color), #198754);">
+                                    <i class="fas fa-comments"></i>
+                                </div>
+                                <div>
+                                    <span class="fw-semibold">Community</span>
+                                    <br>
+                                    <small class="text-muted">Forum & Discussions</small>
+                                </div>
+                            </a>
+                            <a href="report.php" class="list-group-item list-group-item-action d-flex align-items-center">
+                                <div class="user-avatar" style="background: linear-gradient(135deg, var(--reports-color), #dc3545);">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div>
+                                    <span class="fw-semibold">Reports</span>
+                                    <br>
+                                    <small class="text-muted">Analytics & Statistics</small>
+                                </div>
                             </a>
                             <a href="admin-tips.php" class="list-group-item list-group-item-action d-flex align-items-center">
                                 <div class="user-avatar" style="background: linear-gradient(135deg, #20c997, #198754);">
@@ -800,11 +766,21 @@ $activity = $activity_stmt->fetch();
                             <span class="activity-label">Responses</span>
                         </div>
                     </div>
+                    <div class="activity-item">
+                        <div class="activity-icon forum">
+                            <i class="fas fa-comment"></i>
+                        </div>
+                        <div>
+                            <span class="activity-count"><?php echo $activity['today_forum_posts'] ?? 0; ?></span>
+                            <span class="activity-label">Forum Posts</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Middle Column: Pending Doctors -->
+            <!-- Middle Column: Pending Doctors & Forum -->
             <div class="col-md-4">
+                <!-- Pending Doctors -->
                 <div class="card shadow-sm mb-4 quick-action-card">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
@@ -817,20 +793,14 @@ $activity = $activity_stmt->fetch();
                     </div>
                     <div class="card-body">
                         <?php if (empty($pending_doctors)): ?>
-                            <div class="text-center py-5">
-                                <div class="mb-4">
-                                    <i class="fas fa-check-circle fa-3x text-success animate__animated animate__pulse animate__infinite" 
-                                       style="animation-duration: 2s"></i>
-                                </div>
+                            <div class="text-center py-4">
+                                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                                 <h6 class="fw-bold mb-2">All Caught Up!</h6>
                                 <p class="text-muted mb-0">No pending doctor applications.</p>
-                                <a href="admin-users.php?filter=doctors" class="btn btn-warning mt-3 btn-sm btn-lift">
-                                    <i class="fas fa-user-md me-1"></i> View All Doctors
-                                </a>
                             </div>
                         <?php else: ?>
                             <?php foreach ($pending_doctors as $index => $doctor): ?>
-                                <div class="border-bottom pb-3 mb-3 page-transition" style="animation-delay: <?php echo $index * 0.1; ?>s">
+                                <div class="border-bottom pb-3 mb-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="d-flex align-items-start">
                                             <div class="user-avatar me-3">
@@ -863,15 +833,71 @@ $activity = $activity_stmt->fetch();
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Community Forum -->
+                <div class="card shadow-sm mb-4 quick-action-card">
+                    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: var(--community-color);">
+                        <h5 class="mb-0">
+                            <i class="fas fa-comments me-2"></i> 
+                            Community Forum
+                        </h5>
+                        <i class="fas fa-users fa-lg opacity-50"></i>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($recent_posts)): ?>
+                            <div class="text-center py-4">
+                                <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                                <h6 class="fw-bold mb-2">No Forum Posts Yet</h6>
+                                <p class="text-muted mb-3">Community discussions will appear here.</p>
+                                <a href="community.php" class="btn btn-outline-success btn-sm btn-lift">
+                                    <i class="fas fa-comments me-1"></i> Go to Community
+                                </a>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($recent_posts as $index => $post): ?>
+                                <div class="forum-card">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div style="flex: 1;">
+                                            <h6 class="fw-bold mb-1">
+                                                <i class="fas fa-comment text-success me-2"></i>
+                                                <?php echo htmlspecialchars($post['title']); ?>
+                                            </h6>
+                                            <small class="text-muted d-block">
+                                                <i class="fas fa-user me-1"></i> 
+                                                <?php echo htmlspecialchars($post['full_name']); ?>
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i> 
+                                                <?php echo date('M d, Y H:i', strtotime($post['created_at'])); ?>
+                                            </small>
+                                        </div>
+                                        <a href="community.php?post=<?php echo $post['post_id']; ?>" 
+                                           class="btn btn-sm btn-outline-success btn-lift">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                            <div class="text-center mt-3">
+                                <a href="community.php" class="btn btn-success btn-sm btn-lift me-2">
+                                    <i class="fas fa-comments me-1"></i> View Forum
+                                </a>
+                                <a href="community.php?action=moderate" class="btn btn-outline-success btn-sm btn-lift">
+                                    <i class="fas fa-shield-alt me-1"></i> Moderate
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
 
-            <!-- Right Column: Recent Health Tips -->
+            <!-- Right Column: Health Tips & Reports -->
             <div class="col-md-4">
+                <!-- Health Tips -->
                 <div class="card shadow-sm mb-4 quick-action-card">
                     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="fas fa-lightbulb me-2 animate__animated animate__flash" 
-                               style="animation-duration: 3s; animation-iteration-count: 3"></i> 
+                            <i class="fas fa-lightbulb me-2"></i> 
                             Recent Health Tips
                         </h5>
                         <i class="fas fa-heartbeat fa-lg opacity-50"></i>
@@ -879,18 +905,16 @@ $activity = $activity_stmt->fetch();
                     <div class="card-body">
                         <?php if (empty($recent_tips)): ?>
                             <div class="text-center py-4">
-                                <div class="mb-4">
-                                    <i class="fas fa-sticky-note fa-3x text-muted"></i>
-                                </div>
+                                <i class="fas fa-sticky-note fa-3x text-muted mb-3"></i>
                                 <h6 class="fw-bold mb-2">No Health Tips Yet</h6>
-                                <p class="text-muted mb-3">Start creating educational content for users.</p>
+                                <p class="text-muted mb-3">Start creating educational content.</p>
                                 <a href="admin-tips.php?action=create" class="btn btn-success btn-sm btn-lift">
                                     <i class="fas fa-plus me-1"></i> Create First Tip
                                 </a>
                             </div>
                         <?php else: ?>
                             <?php foreach ($recent_tips as $index => $tip): ?>
-                                <div class="tip-card page-transition" style="animation-delay: <?php echo $index * 0.1; ?>s">
+                                <div class="tip-card">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
                                             <h6 class="fw-bold mb-1">
@@ -909,9 +933,9 @@ $activity = $activity_stmt->fetch();
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-                            <div class="text-center mt-4">
+                            <div class="text-center mt-3">
                                 <a href="admin-tips.php" class="btn btn-success btn-sm btn-lift me-2">
-                                    <i class="fas fa-cogs me-1"></i> Manage All Tips
+                                    <i class="fas fa-cogs me-1"></i> Manage Tips
                                 </a>
                                 <a href="admin-tips.php?action=create" class="btn btn-outline-success btn-sm btn-lift">
                                     <i class="fas fa-plus me-1"></i> Create New
@@ -920,9 +944,101 @@ $activity = $activity_stmt->fetch();
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Reports Summary -->
+                <div class="card shadow-sm mb-4 quick-action-card">
+                    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: var(--reports-color);">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar me-2"></i> 
+                            Reports Summary
+                        </h5>
+                        <i class="fas fa-chart-pie fa-lg opacity-50"></i>
+                    </div>
+                    <div class="card-body">
+                        <div class="report-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-1">Total Requests</h6>
+                                    <span class="activity-count"><?php echo $report_stats['total'] ?? 0; ?></span>
+                                </div>
+                                <span class="metric-badge high-priority"><?php echo $report_stats['high_priority'] ?? 0; ?> High</span>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold mb-0">Request Status</h6>
+                            </div>
+                            <div class="progress mb-1" style="height: 20px;">
+                                <?php 
+                                $total = $report_stats['total'] ?? 1;
+                                $pending_pct = ($report_stats['pending'] ?? 0) / $total * 100;
+                                $responded_pct = ($report_stats['responded'] ?? 0) / $total * 100;
+                                $closed_pct = ($report_stats['closed'] ?? 0) / $total * 100;
+                                ?>
+                                <div class="progress-bar bg-warning" style="width: <?php echo $pending_pct; ?>%">
+                                    Pending
+                                </div>
+                                <div class="progress-bar bg-info" style="width: <?php echo $responded_pct; ?>%">
+                                    Responded
+                                </div>
+                                <div class="progress-bar bg-success" style="width: <?php echo $closed_pct; ?>%">
+                                    Closed
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span><?php echo $report_stats['pending'] ?? 0; ?> Pending</span>
+                                <span><?php echo $report_stats['responded'] ?? 0; ?> Responded</span>
+                                <span><?php echo $report_stats['closed'] ?? 0; ?> Closed</span>
+                            </div>
+                        </div>
+                        
+                        <div class="report-card">
+                            <h6 class="fw-bold mb-2">Unique Patients Served</h6>
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="fas fa-users fa-2x text-primary"></i>
+                                </div>
+                                <div>
+                                    <span class="activity-count"><?php echo $report_stats['unique_patients'] ?? 0; ?></span>
+                                    <span class="activity-label">Distinct patients</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <a href="report.php" class="btn btn-warning btn-sm btn-lift me-2">
+                                <i class="fas fa-chart-line me-1"></i> View Full Reports
+                            </a>
+                            <a href="report.php?action=export" class="btn btn-outline-warning btn-sm btn-lift">
+                                <i class="fas fa-download me-1"></i> Export Data
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="mt-5 py-4 bg-dark text-white">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>HealthConnect Admin System</h6>
+                    <small class="text-muted">
+                        <i class="fas fa-server me-1"></i> System Status: <span class="text-success">Online</span> | 
+                        <i class="fas fa-database me-1"></i> Last Updated: <?php echo date('Y-m-d H:i:s'); ?>
+                    </small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted">
+                        © <?php echo date('Y'); ?> HealthConnect. All rights reserved.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -930,7 +1046,7 @@ $activity = $activity_stmt->fetch();
         document.addEventListener('DOMContentLoaded', function() {
             // Animate counters
             const counters = document.querySelectorAll('.counter');
-            const speed = 150; // Lower is faster
+            const speed = 100; // Lower is faster
             
             const animateCounter = (counter) => {
                 const target = +counter.getAttribute('data-target');
@@ -946,9 +1062,11 @@ $activity = $activity_stmt->fetch();
             };
             
             // Start counters when page loads
-            counters.forEach(counter => {
-                animateCounter(counter);
-            });
+            setTimeout(() => {
+                counters.forEach(counter => {
+                    animateCounter(counter);
+                });
+            }, 500);
 
             // Add ripple effect to buttons
             document.querySelectorAll('.btn').forEach(button => {
@@ -968,19 +1086,6 @@ $activity = $activity_stmt->fetch();
                     }, 600);
                 });
             });
-
-            // Animate cards on scroll
-            const cards = document.querySelectorAll('.quick-action-card, .stat-card');
-            const cardObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '1';
-                        entry.target.style.transform = 'translateY(0)';
-                    }
-                });
-            }, { threshold: 0.1 });
-            
-            cards.forEach(card => cardObserver.observe(card));
 
             // Add CSS for ripple effect and animations
             const style = document.createElement('style');
@@ -1023,61 +1128,32 @@ $activity = $activity_stmt->fetch();
                     }
                 }
                 
-                .stat-card, .quick-action-card {
-                    will-change: transform;
-                }
-                
-                /* Shine effect for cards */
-                .shine-effect {
-                    position: relative;
-                    overflow: hidden;
-                }
-                
-                .shine-effect::after {
-                    content: '';
-                    position: absolute;
-                    top: -50%;
-                    left: -50%;
-                    width: 200%;
-                    height: 200%;
-                    background: linear-gradient(
-                        to right,
-                        rgba(255, 255, 255, 0) 0%,
-                        rgba(255, 255, 255, 0.3) 50%,
-                        rgba(255, 255, 255, 0) 100%
-                    );
-                    transform: rotate(30deg);
-                    transition: transform 0.8s;
-                }
-                
-                .shine-effect:hover::after {
-                    transform: rotate(30deg) translate(10%, 10%);
+                .stat-card:hover .stat-icon {
+                    opacity: 0.5;
+                    transform: scale(1.2);
                 }
             `;
             document.head.appendChild(style);
 
-            // Add hover effect to cards
-            document.querySelectorAll('.stat-card, .quick-action-card').forEach(card => {
-                card.classList.add('shine-effect');
-            });
-
             // Notification alert for pending items
-            const pendingItems = <?php echo json_encode($stats['pending_doctors'] > 0 || $stats['pending_requests'] > 0); ?>;
-            if (pendingItems) {
+            const pendingDoctors = <?php echo $stats['pending_doctors'] ?? 0; ?>;
+            const pendingRequests = <?php echo $stats['pending_requests'] ?? 0; ?>;
+            
+            if (pendingDoctors > 0 || pendingRequests > 0) {
                 setTimeout(() => {
                     const notification = document.createElement('div');
-                    notification.className = 'position-fixed bottom-0 end-0 m-3 alert alert-warning alert-dismissible shadow-lg';
+                    notification.className = 'position-fixed bottom-0 end-0 m-3 alert alert-warning alert-dismissible shadow-lg animate__animated animate__slideInUp';
                     notification.style.zIndex = '9999';
-                    notification.style.animation = 'slideUp 0.5s ease-out';
+                    notification.style.maxWidth = '400px';
                     notification.innerHTML = `
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         <div class="d-flex align-items-center">
                             <i class="fas fa-bell text-warning me-3 fa-lg"></i>
                             <div>
-                                <h6 class="mb-1">Pending Items Need Attention!</h6>
+                                <h6 class="mb-1 fw-bold">Attention Required!</h6>
                                 <p class="mb-0 small">
-                                    ${<?php echo $stats['pending_doctors']; ?>} doctor applications and 
-                                    ${<?php echo $stats['pending_requests']; ?>} requests are awaiting review.
+                                    ${pendingDoctors} doctor applications and 
+                                    ${pendingRequests} medical requests are awaiting review.
                                 </p>
                             </div>
                         </div>
@@ -1087,50 +1163,53 @@ $activity = $activity_stmt->fetch();
                     // Auto remove after 10 seconds
                     setTimeout(() => {
                         if (notification.parentNode) {
-                            notification.remove();
+                            notification.classList.add('animate__slideOutDown');
+                            setTimeout(() => {
+                                if (notification.parentNode) {
+                                    notification.remove();
+                                }
+                            }, 500);
                         }
                     }, 10000);
                 }, 2000);
             }
-        });
-
-        // Add interactive hover effects
-        document.querySelectorAll('.list-group-item').forEach(item => {
-            item.addEventListener('mouseenter', function() {
-                const icon = this.querySelector('i');
-                if (icon) {
-                    icon.style.transform = 'scale(1.2) rotate(5deg)';
-                }
-            });
             
-            item.addEventListener('mouseleave', function() {
-                const icon = this.querySelector('i');
-                if (icon) {
-                    icon.style.transform = 'scale(1) rotate(0)';
-                }
-            });
+            // Auto-refresh activity data every 60 seconds
+            setInterval(() => {
+                console.log('Dashboard auto-refresh triggered');
+                // You can add AJAX call here to refresh activity data
+            }, 60000);
         });
 
         // Real-time update simulation (optional)
         function simulateLiveUpdates() {
             setInterval(() => {
-                const counter = document.querySelector('.stat-card.patients .counter');
-                if (counter) {
+                const counter = document.querySelector('.stat-card.requests .counter');
+                if (counter && Math.random() > 0.8) {
                     const current = parseInt(counter.textContent.replace(/,/g, ''));
-                    const increment = Math.random() > 0.7 ? 1 : 0;
-                    if (increment > 0) {
-                        counter.textContent = (current + increment).toLocaleString();
-                        counter.style.animation = 'none';
-                        setTimeout(() => {
-                            counter.style.animation = 'pulse 0.5s ease';
-                        }, 10);
-                    }
+                    counter.textContent = (current + 1).toLocaleString();
+                    
+                    // Add visual feedback
+                    counter.style.color = '#dc3545';
+                    setTimeout(() => {
+                        counter.style.color = 'white';
+                    }, 1000);
                 }
             }, 30000); // Check every 30 seconds
         }
         
         // Start simulation
         simulateLiveUpdates();
+        
+        // Card click effects
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.transform = 'translateY(-20px) scale(1.05)';
+                setTimeout(() => {
+                    this.style.transform = 'translateY(-15px) scale(1.02)';
+                }, 300);
+            });
+        });
     </script>
 </body>
 </html>
