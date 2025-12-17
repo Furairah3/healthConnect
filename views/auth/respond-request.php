@@ -26,7 +26,7 @@ $request_id = $_GET['id'] ?? 0;
 $message = '';
 $message_type = '';
 
-// Get request details
+// Get request details - FIXED: Added response_text to SELECT
 $request = null;
 if ($request_id) {
     $sql = "SELECT mr.*, u.full_name as patient_name, u.email_address, u.location as patient_location
@@ -50,39 +50,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
     $action = $_POST['action'] ?? 'responded'; // 'responded' or 'closed'
     
     // Log form data
-    error_log("=== FORM SUBMISSION START ===");
-    error_log("Request ID: " . $request_id);
-    error_log("User ID: " . $user_id);
+    error_log("=== FORM SUBMISSION FOR REQUEST #{$request_id} ===");
+    error_log("User ID: {$user_id}, Role: {$user_role}");
     error_log("Response length: " . strlen($response_text));
-    error_log("Action: " . $action);
+    error_log("Action: {$action}");
     
     if (empty($response_text)) {
         $message = 'Please provide a response';
         $message_type = 'danger';
-        error_log("Error: Empty response");
     } elseif (strlen($response_text) < 50) {
         $message = 'Response should be at least 50 characters long to provide meaningful help';
         $message_type = 'danger';
-        error_log("Error: Response too short");
     } else {
         try {
-            // DIRECT SIMPLE UPDATE - try the most basic version first
+            // SIMPLE UPDATE - No transactions, no complex checks
             $status = ($action === 'close') ? 'closed' : 'responded';
             
-            // Version 1: Try simplest update first
+            // Build the update query
             $update_sql = "UPDATE hc_medical_requests 
                            SET response_text = :response_text,
                                responded_by_user_id = :user_id,
-                               request_status = :status
+                               request_status = :status,
+                               response_date = NOW()
                            WHERE request_id = :request_id";
             
-            error_log("Attempting UPDATE with SQL: " . $update_sql);
-            error_log("Params: response_text=" . substr($response_text, 0, 100) . "...");
-            error_log("Params: user_id=" . $user_id);
-            error_log("Params: status=" . $status);
-            error_log("Params: request_id=" . $request_id);
+            error_log("SQL Query: {$update_sql}");
+            error_log("Params: request_id={$request_id}, user_id={$user_id}, status={$status}");
             
             $update_stmt = $pdo->prepare($update_sql);
+            
+            // Execute with parameters
             $params = [
                 ':response_text' => $response_text,
                 ':user_id' => $user_id,
@@ -93,21 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
             $result = $update_stmt->execute($params);
             $rows_affected = $update_stmt->rowCount();
             
-            error_log("Execute result: " . ($result ? 'true' : 'false'));
-            error_log("Rows affected: " . $rows_affected);
+            error_log("Execute result: " . ($result ? 'SUCCESS' : 'FAILED'));
+            error_log("Rows affected: {$rows_affected}");
             
             if ($result && $rows_affected > 0) {
-                // Try to also update response_date if column exists
-                try {
-                    $date_sql = "UPDATE hc_medical_requests SET response_date = NOW() WHERE request_id = :request_id";
-                    $date_stmt = $pdo->prepare($date_sql);
-                    $date_stmt->execute([':request_id' => $request_id]);
-                    error_log("Response date updated");
-                } catch (Exception $e) {
-                    error_log("Could not update response_date: " . $e->getMessage());
-                    // This is okay, column might not exist
-                }
-                
                 // Log activity
                 $log_sql = "INSERT INTO hc_activity_logs (user_id, activity_type, activity_description) 
                             VALUES (:user_id, 'response_added', :description)";
@@ -119,69 +105,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
                 
                 $message = '✅ Response submitted successfully! The patient has been notified.';
                 $message_type = 'success';
-                error_log("SUCCESS: Response submitted");
                 
                 // Refresh request data
                 $stmt->execute([':request_id' => $request_id]);
                 $request = $stmt->fetch();
                 
             } else {
-                // Try Version 2: Check if columns exist by describing table
-                error_log("Update failed, checking table structure...");
+                // Check for PDO error
+                $errorInfo = $update_stmt->errorInfo();
+                error_log("PDO Error: " . print_r($errorInfo, true));
                 
-                // Debug: Show table structure
-                $desc_sql = "DESCRIBE hc_medical_requests";
-                $desc_stmt = $pdo->query($desc_sql);
-                $table_structure = $desc_stmt->fetchAll();
-                error_log("Table structure: " . print_r($table_structure, true));
-                
-                // Try updating without optional columns
+                // Try a simpler update without response_date
                 $update_sql2 = "UPDATE hc_medical_requests 
                                SET response_text = :response_text,
+                                   responded_by_user_id = :user_id,
                                    request_status = :status
                                WHERE request_id = :request_id";
                 
-                error_log("Trying UPDATE 2 with SQL: " . $update_sql2);
+                error_log("Trying simpler update without response_date");
                 
                 $update_stmt2 = $pdo->prepare($update_sql2);
-                $params2 = [
-                    ':response_text' => $response_text,
-                    ':status' => $status,
-                    ':request_id' => $request_id
-                ];
-                
-                $result2 = $update_stmt2->execute($params2);
+                $result2 = $update_stmt2->execute($params);
                 $rows_affected2 = $update_stmt2->rowCount();
                 
-                error_log("Execute result 2: " . ($result2 ? 'true' : 'false'));
-                error_log("Rows affected 2: " . $rows_affected2);
-                
                 if ($result2 && $rows_affected2 > 0) {
-                    $message = '✅ Response submitted successfully! (Without assigning responder)';
+                    $message = '✅ Response submitted successfully! (Response date not set)';
                     $message_type = 'success';
                     
                     // Refresh request data
                     $stmt->execute([':request_id' => $request_id]);
                     $request = $stmt->fetch();
                 } else {
-                    // LAST RESORT: Try direct SQL execution
-                    error_log("All updates failed, trying direct INSERT into response_text...");
-                    
-                    // Check if we can at least set the response_text
-                    $check_sql = "SELECT response_text FROM hc_medical_requests WHERE request_id = :request_id";
-                    $check_stmt = $pdo->prepare($check_sql);
-                    $check_stmt->execute([':request_id' => $request_id]);
-                    $current_response = $check_stmt->fetchColumn();
-                    error_log("Current response_text value: " . ($current_response ?: 'NULL'));
-                    
-                    $message = '⚠️ Could not update request. Please check database permissions or contact administrator.';
+                    $message = '⚠️ Failed to update the request. Database error.';
                     $message_type = 'danger';
-                    error_log("FINAL ERROR: All update attempts failed");
+                    $errorInfo2 = $update_stmt2->errorInfo();
+                    error_log("Second PDO Error: " . print_r($errorInfo2, true));
                     
-                    // Show database error info if available
-                    if ($update_stmt->errorInfo()) {
-                        error_log("PDO Error Info: " . print_r($update_stmt->errorInfo(), true));
-                        $message .= '<br><small>Error: ' . $update_stmt->errorInfo()[2] . '</small>';
+                    // Add error details to message for debugging
+                    if ($errorInfo2[2]) {
+                        $message .= '<br><small>Error: ' . htmlspecialchars($errorInfo2[2]) . '</small>';
                     }
                 }
             }
@@ -190,12 +152,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
             $message = '❌ Database error: ' . $e->getMessage();
             $message_type = 'danger';
             error_log("Exception: " . $e->getMessage());
-            error_log("Trace: " . $e->getTraceAsString());
         }
     }
     
     error_log("=== FORM SUBMISSION END ===");
 }
+
+// Check if response_text column exists in the result
+$has_response_text_column = $request && array_key_exists('response_text', $request);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -219,27 +183,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
         .alert-warning { background: #fff3cd; border-color: #ffecb5; color: #664d03; }
         .alert-info { background: #cff4fc; border-color: #b6effb; color: #055160; }
         
-        .card { border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .card { border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: none; }
         
-        textarea { min-height: 200px; resize: vertical; }
+        textarea { min-height: 200px; resize: vertical; font-size: 15px; line-height: 1.6; }
         
-        .btn-success { background: #198754; border-color: #198754; }
+        .btn-success { background: #198754; border-color: #198754; font-weight: 500; }
         .btn-success:hover { background: #157347; border-color: #146c43; }
         
         .request-info {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-left: 4px solid #0d6efd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
         }
         
         .debug-info {
             font-size: 0.85rem;
             background: #e9ecef;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .medical-response {
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .form-check-card {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .form-check-card:hover {
+            border-color: #0d6efd;
+            background: #f8f9fa;
+        }
+        
+        .form-check-card.selected {
+            border-color: #198754;
+            background: #f0fff4;
+        }
+        
+        .disclaimer-box {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
         }
     </style>
 </head>
@@ -263,38 +262,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
 
     <!-- Main Content -->
     <div class="container">
-        <!-- Debug Info -->
+        <!-- Debug Info - FIXED -->
         <div class="debug-info">
-            <strong><i class="fas fa-bug me-1"></i>Debug Info:</strong><br>
-            Request ID: <code><?php echo $request_id; ?></code> | 
-            Status: <code><?php echo $request ? $request['request_status'] : 'N/A'; ?></code> | 
-            User ID: <code><?php echo $user_id; ?></code> | 
-            Role: <code><?php echo $user_role; ?></code> |
-            Has Response Text Column: <?php echo $request && isset($request['response_text']) ? '✅ Yes' : '❌ No'; ?>
+            <strong><i class="fas fa-bug me-1"></i>System Status:</strong><br>
+            • Request ID: <code><?php echo $request_id; ?></code><br>
+            • Status: <code><?php echo $request ? $request['request_status'] : 'N/A'; ?></code><br>
+            • User ID: <code><?php echo $user_id; ?></code> (Role: <?php echo $user_role; ?>)<br>
+            • response_text column: <?php echo $has_response_text_column ? '✅ EXISTS in result' : '❌ NOT in result array'; ?><br>
+            • Database: <?php echo $pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS); ?>
         </div>
         
         <?php if ($message): ?>
             <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show">
                 <div class="d-flex align-items-center">
                     <?php if ($message_type === 'success'): ?>
-                        <i class="fas fa-check-circle me-3 fa-lg"></i>
+                        <i class="fas fa-check-circle me-3 fa-2x"></i>
                     <?php elseif ($message_type === 'danger'): ?>
-                        <i class="fas fa-exclamation-circle me-3 fa-lg"></i>
+                        <i class="fas fa-exclamation-circle me-3 fa-2x"></i>
                     <?php elseif ($message_type === 'warning'): ?>
-                        <i class="fas fa-exclamation-triangle me-3 fa-lg"></i>
+                        <i class="fas fa-exclamation-triangle me-3 fa-2x"></i>
                     <?php endif; ?>
-                    <div>
+                    <div style="flex: 1;">
+                        <h5 class="mb-1"><?php 
+                            echo $message_type === 'success' ? 'Success!' : 
+                                 ($message_type === 'danger' ? 'Error!' : 'Notice'); 
+                        ?></h5>
                         <?php echo $message; ?>
-                        <?php if ($message_type === 'success' && $request): ?>
-                            <div class="mt-2">
-                                <a href="doctor-dashboard.php" class="btn btn-sm btn-outline-success me-2">
-                                    <i class="fas fa-tachometer-alt me-1"></i> Back to Dashboard
-                                </a>
-                                <a href="respond-request.php?id=<?php echo $request_id + 1; ?>" class="btn btn-sm btn-success">
-                                    <i class="fas fa-forward me-1"></i> Next Request
-                                </a>
-                            </div>
-                        <?php endif; ?>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -316,29 +309,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
         <?php elseif ($request && $request['request_status'] !== 'pending'): ?>
             <!-- Request Already Responded -->
             <div class="card">
-                <div class="card-body text-center py-5">
-                    <?php if ($request['request_status'] === 'responded'): ?>
-                        <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
-                        <h2>Request Already Responded</h2>
-                        <div class="alert alert-success mt-3">
-                            <strong>Response:</strong><br>
-                            <?php echo nl2br(htmlspecialchars($request['response_text'] ?: 'No response text available')); ?>
+                <div class="card-body">
+                    <div class="text-center py-4">
+                        <?php if ($request['request_status'] === 'responded'): ?>
+                            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                            <h2>Request Already Responded</h2>
+                        <?php else: ?>
+                            <i class="fas fa-ban fa-4x text-danger mb-3"></i>
+                            <h2>Request <?php echo ucfirst($request['request_status']); ?></h2>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php if (!empty($request['response_text'])): ?>
+                        <div class="medical-response">
+                            <h5 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-file-medical-alt me-2"></i>Previous Response
+                            </h5>
+                            <div class="response-content">
+                                <?php echo nl2br(htmlspecialchars($request['response_text'])); ?>
+                            </div>
+                            <?php if ($request['response_date']): ?>
+                                <div class="mt-3 text-muted">
+                                    <i class="far fa-clock me-1"></i>
+                                    Responded on: <?php echo date('F j, Y \a\t g:i A', strtotime($request['response_date'])); ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
-                    <?php else: ?>
-                        <i class="fas fa-ban fa-4x text-danger mb-3"></i>
-                        <h2>Request <?php echo ucfirst($request['request_status']); ?></h2>
                     <?php endif; ?>
                     
-                    <p class="text-muted mt-3">
-                        <strong>Status:</strong> <?php echo ucfirst($request['request_status']); ?><br>
-                        <?php if ($request['response_date']): ?>
-                            <strong>Response Date:</strong> <?php echo date('F j, Y \a\t g:i A', strtotime($request['response_date'])); ?>
-                        <?php endif; ?>
-                    </p>
-                    
-                    <a href="doctor-dashboard.php" class="btn btn-primary mt-3">
-                        <i class="fas fa-hands-helping me-1"></i> Help Other Patients
-                    </a>
+                    <div class="text-center mt-4">
+                        <a href="doctor-dashboard.php" class="btn btn-primary">
+                            <i class="fas fa-hands-helping me-1"></i> Help Other Patients
+                        </a>
+                    </div>
                 </div>
             </div>
         <?php elseif ($request): ?>
@@ -346,121 +349,185 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">
-                            <i class="fas fa-comment-medical me-2"></i> 
-                            Respond to Medical Request
-                        </h4>
-                        <span class="badge bg-light text-primary">#<?php echo $request_id; ?></span>
+                        <div>
+                            <h4 class="mb-1">
+                                <i class="fas fa-comment-medical me-2"></i> 
+                                Medical Response Required
+                            </h4>
+                            <small class="opacity-90">Request #<?php echo $request_id; ?> • <?php echo htmlspecialchars($request['patient_name']); ?></small>
+                        </div>
+                        <span class="badge bg-light text-primary fs-6">Urgent</span>
                     </div>
                 </div>
+                
                 <div class="card-body">
-                    <!-- Request Info -->
+                    <!-- Patient Information -->
                     <div class="request-info">
-                        <h5>
-                            <i class="fas fa-user-injured me-2"></i>
-                            Patient: <?php echo htmlspecialchars($request['patient_name']); ?>
-                        </h5>
-                        <p class="mb-2">
-                            <i class="far fa-calendar me-1"></i>
-                            <strong>Submitted:</strong> <?php echo date('F j, Y \a\t g:i A', strtotime($request['request_date'])); ?>
-                        </p>
-                        <?php if ($request['patient_location']): ?>
-                            <p class="mb-2">
-                                <i class="fas fa-map-marker-alt me-1"></i>
-                                <strong>Location:</strong> <?php echo htmlspecialchars($request['patient_location']); ?>
-                            </p>
-                        <?php endif; ?>
-                        <?php if ($request['urgency_level']): ?>
-                            <p class="mb-2">
-                                <i class="fas fa-exclamation-circle me-1"></i>
-                                <strong>Urgency:</strong> 
-                                <span class="badge bg-<?php 
-                                    echo $request['urgency_level'] === 'high' ? 'danger' : 
-                                         ($request['urgency_level'] === 'medium' ? 'warning' : 'success'); 
-                                ?>">
-                                    <?php echo ucfirst($request['urgency_level']); ?>
-                                </span>
-                            </p>
-                        <?php endif; ?>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>
+                                    <i class="fas fa-user-injured me-2"></i>
+                                    Patient Information
+                                </h5>
+                                <p class="mb-2">
+                                    <strong>Name:</strong> <?php echo htmlspecialchars($request['patient_name']); ?>
+                                </p>
+                                <?php if ($request['patient_location']): ?>
+                                    <p class="mb-2">
+                                        <strong>Location:</strong> <?php echo htmlspecialchars($request['patient_location']); ?>
+                                    </p>
+                                <?php endif; ?>
+                                <?php if ($request['email_address']): ?>
+                                    <p class="mb-2">
+                                        <strong>Email:</strong> <?php echo htmlspecialchars($request['email_address']); ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Request Details
+                                </h5>
+                                <p class="mb-2">
+                                    <strong>Submitted:</strong> <?php echo date('F j, Y \a\t g:i A', strtotime($request['request_date'])); ?>
+                                </p>
+                                <?php if ($request['urgency_level']): ?>
+                                    <p class="mb-2">
+                                        <strong>Urgency:</strong> 
+                                        <span class="badge bg-<?php 
+                                            echo $request['urgency_level'] === 'high' ? 'danger' : 
+                                                 ($request['urgency_level'] === 'medium' ? 'warning text-dark' : 'success'); 
+                                        ?>">
+                                            <?php echo ucfirst($request['urgency_level']); ?> Priority
+                                        </span>
+                                    </p>
+                                <?php endif; ?>
+                                <?php if ($request['category']): ?>
+                                    <p class="mb-2">
+                                        <strong>Category:</strong> <?php echo htmlspecialchars($request['category']); ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                         
-                        <div class="mt-3 p-3 bg-white rounded">
-                            <strong><i class="fas fa-stethoscope me-1"></i> Medical Concern:</strong><br>
-                            <p class="mt-2 mb-0"><?php echo nl2br(htmlspecialchars($request['request_description'])); ?></p>
+                        <div class="mt-4 pt-3 border-top">
+                            <h6>
+                                <i class="fas fa-stethoscope me-2"></i>
+                                Patient's Medical Concern
+                            </h6>
+                            <div class="bg-white p-3 rounded mt-2">
+                                <?php echo nl2br(htmlspecialchars($request['request_description'])); ?>
+                            </div>
                         </div>
                     </div>
                     
                     <!-- Response Form -->
                     <form method="POST" id="responseForm">
                         <div class="mb-4">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-file-medical-alt me-1"></i>
-                                Your Medical Response *
+                            <label class="form-label fw-bold fs-5">
+                                <i class="fas fa-file-medical-alt me-2"></i>
+                                Your Professional Medical Response
+                                <span class="text-danger">*</span>
                             </label>
+                            <div class="form-text mb-3">
+                                Provide clear, actionable medical advice. Include assessment, recommendations, and follow-up instructions.
+                            </div>
                             <textarea 
                                 name="response_text" 
                                 class="form-control" 
-                                placeholder="Please provide detailed medical advice, including:
-• Diagnosis assessment
-• Recommended actions/steps
-• Medications (if applicable)
-• When to seek immediate care
-• Follow-up recommendations
-• Lifestyle advice
+                                placeholder="Example format:
+• Assessment: [Your professional assessment]
+• Recommendations: [Specific actions to take]
+• Medications: [If applicable, with dosage]
+• Follow-up: [When to seek further care]
+• Lifestyle advice: [Diet, exercise, rest]
 
-Minimum 50 characters required..."
-                                required><?php echo htmlspecialchars($_POST['response_text'] ?? ''); ?></textarea>
-                            <div class="form-text mt-2">
-                                <i class="fas fa-text-height me-1"></i>
-                                <span id="charCount">0</span> / 5000 characters (minimum 50 required)
+Please be thorough and compassionate..."
+                                required
+                                rows="8"><?php echo htmlspecialchars($_POST['response_text'] ?? ''); ?></textarea>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div class="form-text">
+                                    <i class="fas fa-text-height me-1"></i>
+                                    <span id="charCount">0</span>/5000 characters
+                                    <span id="charStatus" class="ms-2"></span>
+                                </div>
+                                <div class="form-text">
+                                    <span id="wordCount">0</span> words
+                                </div>
                             </div>
                         </div>
                         
                         <div class="mb-4">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-tasks me-1"></i>
-                                Action After Response
+                            <label class="form-label fw-bold fs-5 mb-3">
+                                <i class="fas fa-tasks me-2"></i>
+                                What should happen after this response?
                             </label>
                             <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-check card p-3 border">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check-card" id="respondCard">
                                         <input class="form-check-input" type="radio" name="action" 
-                                               id="actionRespond" value="responded" checked>
-                                        <label class="form-check-label" for="actionRespond">
-                                            <strong><i class="fas fa-comment-dots me-1"></i> Mark as Responded</strong><br>
-                                            <small class="text-muted">Patient can still follow up with more questions</small>
+                                               id="actionRespond" value="responded" checked style="display: none;">
+                                        <label class="form-check-label w-100" for="actionRespond">
+                                            <div class="d-flex">
+                                                <div class="me-3">
+                                                    <i class="fas fa-comment-dots fa-2x text-primary"></i>
+                                                </div>
+                                                <div>
+                                                    <strong class="d-block">Mark as Responded</strong>
+                                                    <small class="text-muted">Patient can ask follow-up questions. Case remains open for discussion.</small>
+                                                </div>
+                                            </div>
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="form-check card p-3 border">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check-card" id="closeCard">
                                         <input class="form-check-input" type="radio" name="action" 
-                                               id="actionClose" value="close">
-                                        <label class="form-check-label" for="actionClose">
-                                            <strong><i class="fas fa-check-circle me-1"></i> Mark as Closed</strong><br>
-                                            <small class="text-muted">Case is resolved, no further action needed</small>
+                                               id="actionClose" value="close" style="display: none;">
+                                        <label class="form-check-label w-100" for="actionClose">
+                                            <div class="d-flex">
+                                                <div class="me-3">
+                                                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                                                </div>
+                                                <div>
+                                                    <strong class="d-block">Mark as Closed</strong>
+                                                    <small class="text-muted">Case is resolved. No further action needed from patient.</small>
+                                                </div>
+                                            </div>
                                         </label>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="alert alert-warning">
+                        <div class="disclaimer-box">
                             <div class="d-flex">
-                                <i class="fas fa-exclamation-triangle me-3 fa-lg mt-1"></i>
+                                <i class="fas fa-exclamation-triangle me-3 fa-2x text-warning"></i>
                                 <div>
-                                    <strong>Medical Disclaimer:</strong><br>
-                                    This platform provides general health information and is not a substitute for professional medical advice, diagnosis, or treatment. 
-                                    Always seek the advice of a qualified healthcare provider with any questions you may have regarding a medical condition.
+                                    <h5 class="mb-2">Medical & Legal Disclaimer</h5>
+                                    <p class="mb-2">
+                                        <strong>Important:</strong> This platform provides general health information only. 
+                                        It is not a substitute for professional medical advice, diagnosis, or treatment.
+                                    </p>
+                                    <p class="mb-0">
+                                        Always seek the advice of your physician or other qualified health provider with 
+                                        any questions you may have regarding a medical condition.
+                                    </p>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                            <a href="doctor-dashboard.php" class="btn btn-outline-secondary">
-                                <i class="fas fa-arrow-left me-2"></i> Cancel & Return
-                            </a>
-                            <button type="submit" name="submit_response" id="submitBtn" class="btn btn-success btn-lg">
-                                <i class="fas fa-paper-plane me-2"></i> Submit Medical Response
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-4 border-top">
+                            <div>
+                                <a href="doctor-dashboard.php" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i> Cancel
+                                </a>
+                                <button type="button" class="btn btn-outline-info ms-2" id="previewBtn">
+                                    <i class="fas fa-eye me-2"></i> Preview
+                                </button>
+                            </div>
+                            <button type="submit" name="submit_response" id="submitBtn" class="btn btn-success btn-lg px-4">
+                                <i class="fas fa-paper-plane me-2"></i> Submit Response
                             </button>
                         </div>
                     </form>
@@ -472,37 +539,60 @@ Minimum 50 characters required..."
                 <div class="card-header bg-light">
                     <h6 class="mb-0">
                         <i class="fas fa-lightbulb me-2"></i>
-                        Tips for a Good Medical Response
+                        Best Practices for Medical Responses
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-4">
-                            <div class="d-flex mb-3">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                            <div class="d-flex p-3 border rounded bg-white">
+                                <i class="fas fa-user-check text-success me-3 mt-1"></i>
                                 <div>
-                                    <strong>Be Clear</strong><br>
-                                    <small>Use simple, understandable language</small>
+                                    <strong>Patient-Centered</strong>
+                                    <p class="mb-0 small text-muted">Address the patient by name, acknowledge their concerns</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="d-flex mb-3">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                            <div class="d-flex p-3 border rounded bg-white">
+                                <i class="fas fa-clipboard-check text-info me-3 mt-1"></i>
                                 <div>
-                                    <strong>Be Specific</strong><br>
-                                    <small>Provide actionable advice and steps</small>
+                                    <strong>Actionable Advice</strong>
+                                    <p class="mb-0 small text-muted">Provide clear, specific steps the patient can take</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="d-flex mb-3">
-                                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                            <div class="d-flex p-3 border rounded bg-white">
+                                <i class="fas fa-shield-alt text-warning me-3 mt-1"></i>
                                 <div>
-                                    <strong>Be Empathetic</strong><br>
-                                    <small>Acknowledge the patient's concerns</small>
+                                    <strong>Safety First</strong>
+                                    <p class="mb-0 small text-muted">Always include when to seek emergency care</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Preview Modal -->
+            <div class="modal fade" id="previewModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-eye me-2"></i>Preview Your Response
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="previewContent" class="p-3 border rounded bg-light"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('responseForm').submit()">
+                                <i class="fas fa-paper-plane me-2"></i>Submit Response
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -512,48 +602,110 @@ Minimum 50 characters required..."
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Character count with real-time validation
+        // Character and word count
         const textarea = document.querySelector('textarea[name="response_text"]');
         const charCount = document.getElementById('charCount');
+        const charStatus = document.getElementById('charStatus');
+        const wordCount = document.getElementById('wordCount');
         const submitBtn = document.getElementById('submitBtn');
+        const respondCard = document.getElementById('respondCard');
+        const closeCard = document.getElementById('closeCard');
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
         
-        function updateCharCount() {
-            const count = textarea.value.length;
-            charCount.textContent = count;
-            charCount.className = '';
+        function updateCounts() {
+            const text = textarea.value;
+            const charLength = text.length;
+            const wordLength = text.trim().split(/\s+/).filter(word => word.length > 0).length;
             
-            if (count === 0) {
-                charCount.classList.add('text-muted');
+            // Update counts
+            charCount.textContent = charLength;
+            wordCount.textContent = wordLength;
+            
+            // Update status
+            if (charLength === 0) {
+                charStatus.textContent = 'Start typing...';
+                charStatus.className = 'text-muted';
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Submit Medical Response';
-            } else if (count < 50) {
-                charCount.classList.add('text-danger');
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Submit Response';
+            } else if (charLength < 50) {
+                charStatus.textContent = `Need ${50 - charLength} more characters`;
+                charStatus.className = 'text-danger fw-bold';
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i> Need ' + (50 - count) + ' more characters';
-            } else if (count <= 5000) {
-                charCount.classList.add('text-success');
+                submitBtn.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> More details needed`;
+            } else if (charLength <= 5000) {
+                charStatus.textContent = 'Good length ✓';
+                charStatus.className = 'text-success fw-bold';
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Submit Medical Response';
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> Submit Response';
             } else {
-                charCount.classList.add('text-danger');
+                charStatus.textContent = `Too long by ${charLength - 5000} characters`;
+                charStatus.className = 'text-danger fw-bold';
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i> Too long (max 5000)';
+                submitBtn.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i> Too long';
             }
         }
         
-        // Initial update
-        updateCharCount();
+        // Radio card selection
+        function setupRadioCards() {
+            const radios = document.querySelectorAll('input[name="action"]');
+            const cards = [respondCard, closeCard];
+            
+            radios.forEach((radio, index) => {
+                radio.addEventListener('change', function() {
+                    cards.forEach(card => card.classList.remove('selected'));
+                    if (this.checked) {
+                        cards[index].classList.add('selected');
+                    }
+                });
+                
+                // Also make the card clickable
+                cards[index].addEventListener('click', function() {
+                    radio.checked = true;
+                    cards.forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Set initial selection
+            if (document.querySelector('input[name="action"]:checked')) {
+                const checkedIndex = Array.from(radios).findIndex(r => r.checked);
+                cards[checkedIndex].classList.add('selected');
+            }
+        }
         
-        // Update on input
-        textarea.addEventListener('input', updateCharCount);
-        
-        // Auto-resize textarea
-        textarea.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
+        // Preview functionality
+        document.getElementById('previewBtn').addEventListener('click', function() {
+            const responseText = textarea.value.trim();
+            if (responseText.length < 50) {
+                alert('Please write at least 50 characters before previewing.');
+                textarea.focus();
+                return;
+            }
+            
+            const action = document.querySelector('input[name="action"]:checked').value;
+            const actionText = action === 'responded' ? 'Mark as Responded' : 'Mark as Closed';
+            
+            let preview = `
+                <div class="preview-response">
+                    <h5 class="border-bottom pb-2 mb-3">Response Preview</h5>
+                    <div class="mb-3">
+                        <strong>Status:</strong> <span class="badge ${action === 'responded' ? 'bg-primary' : 'bg-success'}">${actionText}</span>
+                    </div>
+                    <div class="preview-content p-3 bg-white rounded border">
+                        ${responseText.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="mt-3 text-muted small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        This is how your response will appear to the patient.
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('previewContent').innerHTML = preview;
+            previewModal.show();
         });
         
-        // Form validation
+        // Form submission
         document.getElementById('responseForm').addEventListener('submit', function(e) {
             const response = textarea.value.trim();
             
@@ -577,31 +729,51 @@ Minimum 50 characters required..."
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
             submitBtn.disabled = true;
             
-            // Disable all form elements
+            // Disable all form elements to prevent double submission
             const formElements = this.elements;
             for (let i = 0; i < formElements.length; i++) {
                 formElements[i].disabled = true;
             }
             
+            // Add a small delay to show the loading state
+            setTimeout(() => {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Processing...';
+            }, 1000);
+            
             return true;
         });
         
-        // Auto-hide alerts after 8 seconds
-        setTimeout(() => {
-            document.querySelectorAll('.alert:not(.alert-warning)').forEach(alert => {
-                const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-                bsAlert.close();
-            });
-        }, 8000);
+        // Auto-resize textarea
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 400) + 'px';
+        });
         
-        // Focus textarea on page load if form is visible
+        // Initialize
+        updateCounts();
+        setupRadioCards();
+        
+        // Update counts on input
+        textarea.addEventListener('input', updateCounts);
+        
+        // Focus textarea on page load
         if (textarea) {
             setTimeout(() => {
                 textarea.focus();
-                // Place cursor at end
-                textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
-            }, 300);
+                // Place cursor at end if there's existing text
+                if (textarea.value) {
+                    textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+                }
+            }, 500);
         }
+        
+        // Auto-hide success alerts after 5 seconds
+        setTimeout(() => {
+            document.querySelectorAll('.alert-success').forEach(alert => {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                bsAlert.close();
+            });
+        }, 5000);
     </script>
 </body>
 </html>
