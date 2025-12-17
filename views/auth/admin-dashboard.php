@@ -573,19 +573,22 @@ $report_stats = $reports_stmt->fetch();
                         </small>
                     </div>
                 </div>
-                <div class="d-flex align-items-center">
-                    <div class="me-4 position-relative">
-                        <span class="admin-badge me-2 btn-lift">
-                            <i class="fas fa-user-shield me-2"></i> System Administrator
-                        </span>
-                        <?php if (($stats['pending_doctors'] ?? 0) > 0 || ($stats['pending_requests'] ?? 0) > 0): ?>
-                            <span class="notification-dot"></span>
-                        <?php endif; ?>
-                    </div>
-                    <a href="logout.php" class="btn btn-light btn-sm btn-lift">
-                        <i class="fas fa-sign-out-alt me-1"></i> Logout
-                    </a>
-                </div>
+               <!-- In the navigation section, update the logout button -->
+<div class="d-flex align-items-center">
+    <div class="me-4 position-relative">
+        <span class="admin-badge me-2 btn-lift">
+            <i class="fas fa-user-shield me-2"></i> System Administrator
+        </span>
+        <?php if (($stats['pending_doctors'] ?? 0) > 0 || ($stats['pending_requests'] ?? 0) > 0): ?>
+            <span class="notification-dot"></span>
+        <?php endif; ?>
+    </div>
+    <a href="logout.php" class="btn btn-light btn-sm btn-lift" 
+       onclick="return confirm('Are you sure you want to logout?')"
+       style="position: relative; z-index: 1000;">
+        <i class="fas fa-sign-out-alt me-1"></i> Logout
+    </a>
+</div>
             </div>
         </div>
     </nav>
