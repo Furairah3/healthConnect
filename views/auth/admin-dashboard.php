@@ -50,7 +50,7 @@ $forum_sql = "SELECT fp.post_id, fp.title, u.full_name, fp.created_at
 $forum_stmt = $pdo->query($forum_sql);
 $recent_posts = $forum_stmt->fetchAll();
 
-// Get system activity - FIXED: Removed reference to non-existent table
+// Get system activity
 $activity_sql = "SELECT 
     (SELECT COUNT(*) FROM hc_users WHERE DATE(date_created) = CURDATE()) as today_users,
     (SELECT COUNT(*) FROM hc_medical_requests WHERE DATE(request_date) = CURDATE()) as today_requests,
@@ -60,16 +60,18 @@ $activity_sql = "SELECT
 $activity_stmt = $pdo->query($activity_sql);
 $activity = $activity_stmt->fetch();
 
-// Get request statistics for reports
-// Simple version without CASE statements
+// Get report statistics - FIXED: Use $stats instead of undefined $report_stats
 $reports_sql = "SELECT 
     COUNT(*) as total,
-    (SELECT COUNT(*) FROM hc_medical_requests WHERE urgency_level = 'high') as high_priority_count,
-    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'pending') as pending_count,
-    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'responded') as responded_count,
-    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'closed') as closed_count,
+    SUM(CASE WHEN urgency_level = 'high' THEN 1 ELSE 0 END) as high_priority,
+    SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN request_status = 'responded' THEN 1 ELSE 0 END) as responded,
+    SUM(CASE WHEN request_status = 'closed' THEN 1 ELSE 0 END) as closed,
     COUNT(DISTINCT patient_id) as unique_patients
     FROM hc_medical_requests";
+
+$reports_stmt = $pdo->query($reports_sql);
+$report_stats = $reports_stmt->fetch();
 ?>
 
 <!DOCTYPE html>
@@ -153,6 +155,7 @@ $reports_sql = "SELECT
             position: relative;
             overflow: hidden;
             animation: gradientShift 8s ease infinite;
+            margin-bottom: 30px; /* ADDED: Added spacing below nav */
         }
         
         .admin-nav::before {
@@ -289,6 +292,7 @@ $reports_sql = "SELECT
             animation: slideRight 0.6s var(--ease-out) forwards;
             opacity: 0;
             position: relative;
+            margin-bottom: 25px; /* ADDED: Added spacing between cards */
         }
         
         .quick-action-card:hover {
@@ -515,6 +519,32 @@ $reports_sql = "SELECT
         .high-priority { background: #dc3545; color: white; }
         .medium-priority { background: #ffc107; color: black; }
         .low-priority { background: #20c997; color: white; }
+        
+        /* ADDED: Main container spacing */
+        .main-container {
+            padding: 20px 0;
+        }
+        
+        /* ADDED: Responsive spacing */
+        @media (max-width: 768px) {
+            .stat-card {
+                margin-bottom: 15px;
+                padding: 20px;
+                min-height: 160px;
+            }
+            
+            .stat-card .counter {
+                font-size: 2.2rem;
+            }
+            
+            .quick-action-card {
+                margin-bottom: 15px;
+            }
+            
+            .today-activity {
+                margin-top: 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -569,9 +599,9 @@ $reports_sql = "SELECT
     </nav>
 
     <!-- Quick Stats -->
-    <div class="container mt-5">
+    <div class="container">
         <div class="row">
-            <div class="col-md-2">
+            <div class="col-md-2 col-sm-4 col-6">
                 <div class="stat-card patients" onclick="window.location.href='admin-users.php?filter=patients'">
                     <div class="stat-icon">
                         <i class="fas fa-user-injured"></i>
@@ -581,7 +611,7 @@ $reports_sql = "SELECT
                     <small>Registered users</small>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2 col-sm-4 col-6">
                 <div class="stat-card volunteers" onclick="window.location.href='admin-users.php?filter=volunteers'">
                     <div class="stat-icon">
                         <i class="fas fa-hands-helping"></i>
@@ -591,7 +621,7 @@ $reports_sql = "SELECT
                     <small>Active helpers</small>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2 col-sm-4 col-6">
                 <div class="stat-card doctors" onclick="window.location.href='admin-users.php?filter=doctors'">
                     <div class="stat-icon">
                         <i class="fas fa-user-md"></i>
@@ -601,7 +631,7 @@ $reports_sql = "SELECT
                     <small>Verified</small>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2 col-sm-4 col-6">
                 <div class="stat-card requests" onclick="window.location.href='admin-requests.php'">
                     <div class="stat-icon">
                         <i class="fas fa-file-medical"></i>
@@ -611,8 +641,9 @@ $reports_sql = "SELECT
                     <small>Total submissions</small>
                 </div>
             </div>
-            <div class="col-md-2">
-                <div class="stat-card forum" onclick="window.location.href='community.php'">
+            <div class="col-md-2 col-sm-4 col-6">
+                <!-- FIXED: Community button - Points to admin-community.php -->
+                <div class="stat-card forum" onclick="window.location.href='admin-community.php'">
                     <div class="stat-icon">
                         <i class="fas fa-comments"></i>
                     </div>
@@ -621,7 +652,7 @@ $reports_sql = "SELECT
                     <small>Community discussions</small>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2 col-sm-4 col-6">
                 <div class="stat-card tips" onclick="window.location.href='admin-tips.php'">
                     <div class="stat-icon">
                         <i class="fas fa-lightbulb"></i>
@@ -635,11 +666,11 @@ $reports_sql = "SELECT
     </div>
 
     <!-- Main Content -->
-    <div class="container mt-4">
+    <div class="container main-container">
         <div class="row">
             <!-- Left Column: Quick Actions & Activity -->
-            <div class="col-md-4">
-                <div class="card shadow-sm mb-4 quick-action-card">
+            <div class="col-lg-4 col-md-12 mb-4">
+                <div class="card shadow-sm quick-action-card">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="fas fa-bolt me-2 animate__animated animate__pulse" style="animation-duration: 2s"></i> 
@@ -689,7 +720,8 @@ $reports_sql = "SELECT
                                     <span class="pending-badge"><?php echo $stats['pending_requests']; ?> pending</span>
                                 <?php endif; ?>
                             </a>
-                            <a href="community.php" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <!-- FIXED: Community link - Points to admin-community.php -->
+                            <a href="admin-community.php" class="list-group-item list-group-item-action d-flex align-items-center">
                                 <div class="user-avatar" style="background: linear-gradient(135deg, var(--community-color), #198754);">
                                     <i class="fas fa-comments"></i>
                                 </div>
@@ -699,7 +731,8 @@ $reports_sql = "SELECT
                                     <small class="text-muted">Forum & Discussions</small>
                                 </div>
                             </a>
-                            <a href="reports.php" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <!-- FIXED: Reports link - Points to admin-reports.php -->
+                            <a href="admin-reports.php" class="list-group-item list-group-item-action d-flex align-items-center">
                                 <div class="user-avatar" style="background: linear-gradient(135deg, var(--reports-color), #dc3545);">
                                     <i class="fas fa-chart-bar"></i>
                                 </div>
@@ -778,9 +811,9 @@ $reports_sql = "SELECT
             </div>
 
             <!-- Middle Column: Pending Doctors & Forum -->
-            <div class="col-md-4">
+            <div class="col-lg-4 col-md-6 mb-4">
                 <!-- Pending Doctors -->
-                <div class="card shadow-sm mb-4 quick-action-card">
+                <div class="card shadow-sm quick-action-card">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="fas fa-user-clock me-2"></i> 
@@ -834,7 +867,7 @@ $reports_sql = "SELECT
                 </div>
 
                 <!-- Community Forum -->
-                <div class="card shadow-sm mb-4 quick-action-card">
+                <div class="card shadow-sm quick-action-card">
                     <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: var(--community-color);">
                         <h5 class="mb-0">
                             <i class="fas fa-comments me-2"></i> 
@@ -848,7 +881,8 @@ $reports_sql = "SELECT
                                 <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
                                 <h6 class="fw-bold mb-2">No Forum Posts Yet</h6>
                                 <p class="text-muted mb-3">Community discussions will appear here.</p>
-                                <a href="community.php" class="btn btn-outline-success btn-sm btn-lift">
+                                <!-- FIXED: Points to admin-community.php -->
+                                <a href="admin-community.php" class="btn btn-outline-success btn-sm btn-lift">
                                     <i class="fas fa-comments me-1"></i> Go to Community
                                 </a>
                             </div>
@@ -870,7 +904,8 @@ $reports_sql = "SELECT
                                                 <?php echo date('M d, Y H:i', strtotime($post['created_at'])); ?>
                                             </small>
                                         </div>
-                                        <a href="community.php?post=<?php echo $post['post_id']; ?>" 
+                                        <!-- FIXED: Points to admin-community.php -->
+                                        <a href="admin-community.php?post=<?php echo $post['post_id']; ?>" 
                                            class="btn btn-sm btn-outline-success btn-lift">
                                             <i class="fas fa-external-link-alt"></i>
                                         </a>
@@ -878,10 +913,12 @@ $reports_sql = "SELECT
                                 </div>
                             <?php endforeach; ?>
                             <div class="text-center mt-3">
-                                <a href="community.php" class="btn btn-success btn-sm btn-lift me-2">
+                                <!-- FIXED: Points to admin-community.php -->
+                                <a href="admin-community.php" class="btn btn-success btn-sm btn-lift me-2">
                                     <i class="fas fa-comments me-1"></i> View Forum
                                 </a>
-                                <a href="community.php?action=moderate" class="btn btn-outline-success btn-sm btn-lift">
+                                <!-- FIXED: Points to admin-community.php with moderation parameter -->
+                                <a href="admin-community.php?action=moderate" class="btn btn-outline-success btn-sm btn-lift">
                                     <i class="fas fa-shield-alt me-1"></i> Moderate
                                 </a>
                             </div>
@@ -891,9 +928,9 @@ $reports_sql = "SELECT
             </div>
 
             <!-- Right Column: Health Tips & Reports -->
-            <div class="col-md-4">
+            <div class="col-lg-4 col-md-6 mb-4">
                 <!-- Health Tips -->
-                <div class="card shadow-sm mb-4 quick-action-card">
+                <div class="card shadow-sm quick-action-card">
                     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="fas fa-lightbulb me-2"></i> 
@@ -945,7 +982,7 @@ $reports_sql = "SELECT
                 </div>
 
                 <!-- Reports Summary -->
-                <div class="card shadow-sm mb-4 quick-action-card">
+                <div class="card shadow-sm quick-action-card">
                     <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: var(--reports-color);">
                         <h5 class="mb-0">
                             <i class="fas fa-chart-bar me-2"></i> 
@@ -1006,10 +1043,12 @@ $reports_sql = "SELECT
                         </div>
                         
                         <div class="text-center mt-4">
-                            <a href="reports.php" class="btn btn-warning btn-sm btn-lift me-2">
+                            <!-- FIXED: Reports link - Points to admin-reports.php -->
+                            <a href="admin-reports.php" class="btn btn-warning btn-sm btn-lift me-2">
                                 <i class="fas fa-chart-line me-1"></i> View Full Reports
                             </a>
-                            <a href="report.php?action=export" class="btn btn-outline-warning btn-sm btn-lift">
+                            <!-- FIXED: Export link - Points to admin-reports.php with export parameter -->
+                            <a href="admin-reports.php?action=export" class="btn btn-outline-warning btn-sm btn-lift">
                                 <i class="fas fa-download me-1"></i> Export Data
                             </a>
                         </div>
