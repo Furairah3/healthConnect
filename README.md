@@ -100,7 +100,7 @@ Stores user records, health requests, activity logs, and verification data using
 
 ## Video Demonstration
 🎥 **Demo Video Link:**  
-(Will be added / Provided in the project PDF submission)
+Video Demo (YouTube): https://youtu.be/aPo04kJhzzQ
 
 The video demonstrates:
 - Application running on the live server
