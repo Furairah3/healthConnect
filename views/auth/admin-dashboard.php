@@ -699,7 +699,7 @@ $reports_sql = "SELECT
                                     <small class="text-muted">Forum & Discussions</small>
                                 </div>
                             </a>
-                            <a href="report.php" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <a href="reports.php" class="list-group-item list-group-item-action d-flex align-items-center">
                                 <div class="user-avatar" style="background: linear-gradient(135deg, var(--reports-color), #dc3545);">
                                     <i class="fas fa-chart-bar"></i>
                                 </div>
