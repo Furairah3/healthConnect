@@ -1006,7 +1006,7 @@ $reports_sql = "SELECT
                         </div>
                         
                         <div class="text-center mt-4">
-                            <a href="report.php" class="btn btn-warning btn-sm btn-lift me-2">
+                            <a href="reports.php" class="btn btn-warning btn-sm btn-lift me-2">
                                 <i class="fas fa-chart-line me-1"></i> View Full Reports
                             </a>
                             <a href="report.php?action=export" class="btn btn-outline-warning btn-sm btn-lift">
