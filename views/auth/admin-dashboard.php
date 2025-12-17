@@ -61,6 +61,7 @@ $activity_stmt = $pdo->query($activity_sql);
 $activity = $activity_stmt->fetch();
 
 // Get request statistics for reports
+// Get request statistics for reports - FIXED VERSION
 $reports_sql = "SELECT 
     COUNT(*) as total,
     SUM(CASE WHEN urgency_level = 'high' THEN 1 ELSE 0 END) as high_priority,
