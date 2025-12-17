@@ -853,7 +853,7 @@ $activity = $activity_stmt->fetch();
                                             <?php endif; ?>
                                         </div>
                                         <!-- FIXED BUTTON - Now uses respond-request.php instead of view-request.php -->
-                                        <a href="respond-requests.php?id=<?php echo $request['request_id']; ?>" 
+                                        <a href="respond-request.php?id=<?php echo $request['request_id']; ?>" 
                                            class="btn btn-sm btn-outline-primary action-btn btn-lift">
                                             <i class="fas fa-comment-medical me-1"></i> Respond
                                         </a>
