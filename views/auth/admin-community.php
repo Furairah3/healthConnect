@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get forum statistics - FIXED: Removed is_pinned column
+// Get forum statistics
 $stats_sql = "SELECT 
     COUNT(*) as total_posts,
     COUNT(DISTINCT author_id) as unique_authors,
@@ -50,8 +50,8 @@ $page = max(1, intval($_GET['page'] ?? 1));
 $limit = 15;
 $offset = ($page - 1) * $limit;
 
-$sql = "SELECT fp.*, u.full_name, u.user_role,
-               (SELECT COUNT(*) FROM hc_forum_replies fr WHERE fr.post_id = fp.post_id) as reply_count
+// FIXED: Removed reference to hc_forum_replies table
+$sql = "SELECT fp.*, u.full_name, u.user_role
         FROM hc_forum_posts fp
         JOIN hc_users u ON fp.author_id = u.user_id
         WHERE 1=1";
@@ -65,8 +65,6 @@ if ($search) {
 
 if ($filter === 'recent') {
     $sql .= " AND fp.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-} elseif ($filter === 'no_replies') {
-    $sql .= " AND (SELECT COUNT(*) FROM hc_forum_replies fr WHERE fr.post_id = fp.post_id) = 0";
 }
 
 $sql .= " ORDER BY fp.created_at DESC";
@@ -156,11 +154,6 @@ $posts = $stmt->fetchAll();
             box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         }
         
-        .post-card.pinned {
-            border-left: 4px solid var(--warning-color);
-            background: #fffbf0;
-        }
-        
         .user-badge {
             display: inline-block;
             padding: 3px 10px;
@@ -173,16 +166,6 @@ $posts = $stmt->fetchAll();
         .badge-volunteer { background: #d1f2eb; color: #198754; }
         .badge-doctor { background: #f0e7ff; color: #6f42c1; }
         .badge-admin { background: #ffeaa7; color: #e17055; }
-        
-        .pinned-badge {
-            background: var(--warning-color);
-            color: black;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-left: 5px;
-        }
         
         .btn-community {
             background: var(--community-color);
@@ -327,7 +310,6 @@ $posts = $stmt->fetchAll();
                     <select name="filter" class="form-control">
                         <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All Posts</option>
                         <option value="recent" <?php echo $filter === 'recent' ? 'selected' : ''; ?>>Recent (7 days)</option>
-                        <option value="no_replies" <?php echo $filter === 'no_replies' ? 'selected' : ''; ?>>No Replies</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -361,9 +343,6 @@ $posts = $stmt->fetchAll();
                         <a href="admin-community.php?action=export" class="btn btn-outline-primary btn-sm">
                             <i class="fas fa-download me-1"></i> Export
                         </a>
-                        <a href="admin-community.php?action=moderate" class="btn btn-outline-warning btn-sm">
-                            <i class="fas fa-shield-alt me-1"></i> Moderate All
-                        </a>
                     </div>
                 </div>
                 
@@ -384,10 +363,6 @@ $posts = $stmt->fetchAll();
                                         <i class="fas fa-clock me-1"></i>
                                         <?php echo date('M d, Y H:i', strtotime($post['created_at'])); ?>
                                     </small>
-                                    <small class="text-muted">
-                                        <i class="fas fa-comment me-1"></i>
-                                        <?php echo $post['reply_count']; ?> replies
-                                    </small>
                                 </div>
                             </div>
                             <div class="action-buttons">
@@ -405,16 +380,10 @@ $posts = $stmt->fetchAll();
                         </p>
                         
                         <div class="d-flex justify-content-between align-items-center">
-                            <a href="view-post.php?id=<?php echo $post['post_id']; ?>" 
+                            <a href="#" onclick="viewPost(<?php echo $post['post_id']; ?>)" 
                                class="btn btn-outline-primary btn-sm">
                                 <i class="fas fa-eye me-1"></i> View Full Post
                             </a>
-                            <?php if ($post['reply_count'] > 0): ?>
-                                <a href="view-post.php?id=<?php echo $post['post_id']; ?>#replies" 
-                                   class="btn btn-outline-success btn-sm">
-                                    <i class="fas fa-comments me-1"></i> View Replies
-                                </a>
-                            <?php endif; ?>
                         </div>
                         
                         <!-- Delete Modal -->
@@ -432,7 +401,6 @@ $posts = $stmt->fetchAll();
                                         <p class="fw-bold">"<?php echo htmlspecialchars($post['title']); ?>"</p>
                                         <p class="text-danger">
                                             <small>
-                                                This will also delete all replies to this post. 
                                                 This action cannot be undone.
                                             </small>
                                         </p>
@@ -523,6 +491,72 @@ $posts = $stmt->fetchAll();
                 }
             });
         });
+        
+        // View post function (simple version since we don't have view-post.php)
+        function viewPost(postId) {
+            // Create a modal to show the full post
+            const modalHtml = `
+                <div class="modal fade" id="viewPostModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Post Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="postContent">
+                                Loading post content...
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add modal to body if not already there
+            if (!document.getElementById('viewPostModal')) {
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+            }
+            
+            // Fetch post details via AJAX
+            fetch('get-post.php?id=' + postId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('postContent').innerHTML = `
+                            <h5>${data.post.title}</h5>
+                            <div class="mb-3">
+                                <span class="badge bg-secondary">${data.post.user_role}</span>
+                                <span class="ms-2">${data.post.full_name}</span>
+                                <small class="text-muted ms-3">
+                                    <i class="fas fa-clock me-1"></i>${data.post.created_at}
+                                </small>
+                            </div>
+                            <div class="post-content">
+                                ${data.post.content.replace(/\n/g, '<br>')}
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('postContent').innerHTML = `
+                            <div class="alert alert-danger">
+                                Error loading post: ${data.message}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('postContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            Error loading post. Please try again.
+                        </div>
+                    `;
+                });
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('viewPostModal'));
+            modal.show();
+        }
     </script>
 </body>
 </html>
