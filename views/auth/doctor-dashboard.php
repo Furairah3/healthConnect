@@ -739,7 +739,7 @@ $activity = $activity_stmt->fetch();
                 <div class="col-lg-4 text-end position-relative">
                     <div class="mb-4">
         
-                        class="doctor-badge me-3 btn-lift">
+                     
                             <i class="fas fa-badge-check me-1"></i> Verified Doctor
                         </a>
                     </div>
