@@ -1,221 +1,443 @@
 <?php
-// healthconnect/views/auth/respond-requests.php
+// healthconnect/views/auth/respond-request.php
 session_start();
-require_once '../../app/config/database.php';
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Check if user is logged in and is a volunteer
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'volunteer') {
+// Check if user is logged in and is a doctor/volunteer/admin
+if (!isset($_SESSION['user_id'])) {
     header('Location: login.php?error=required');
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['user_role'];
 $user_name = $_SESSION['user_name'];
 
-// Handle responding to a request
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['respond_to_request'])) {
-    $request_id = $_POST['request_id'];
-    $response_text = cleanInput($_POST['response_text']);
-    
-    // Update the request with volunteer's response
-    $sql = "UPDATE hc_medical_requests 
-            SET responded_by_user_id = :volunteer_id, 
-                response_text = :response_text,
-                response_date = NOW(),
-                request_status = 'responded'
-            WHERE request_id = :request_id AND request_status = 'pending'";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':volunteer_id' => $user_id,
-        ':response_text' => $response_text,
-        ':request_id' => $request_id
-    ]);
-    
-    // Log activity
-    logActivity($user_id, 'respond', 'Responded to medical request #' . $request_id);
-    
-    $_SESSION['success'] = 'Response submitted successfully!';
-    header('Location: respond-requests.php?success=responded');
+// Check if user can respond (doctor, volunteer, or admin)
+if (!in_array($user_role, ['doctor', 'volunteer', 'admin'])) {
+    header('Location: ' . $user_role . '-dashboard.php?error=no_permission');
     exit();
 }
 
-// Handle search and filters
-$search = isset($_GET['search']) ? cleanInput($_GET['search']) : '';
-$urgency = isset($_GET['urgency']) ? cleanInput($_GET['urgency']) : '';
-$category = isset($_GET['category']) ? cleanInput($_GET['category']) : '';
+require_once '../../app/config/database.php';
 
-// Build query with filters
-$sql = "SELECT r.request_id, r.request_title, r.request_description, 
-               r.request_date, r.urgency_level, r.category, r.request_status,
-               u.full_name as patient_name, u.profession as patient_profession
-        FROM hc_medical_requests r
-        JOIN hc_users u ON r.patient_id = u.user_id
-        WHERE r.request_status = 'pending'";
+$request_id = $_GET['id'] ?? 0;
+$message = '';
+$message_type = '';
 
-$params = [];
-
-if (!empty($search)) {
-    $sql .= " AND (r.request_title LIKE :search OR r.request_description LIKE :search OR u.full_name LIKE :search)";
-    $params[':search'] = "%$search%";
+// Get request details
+$request = null;
+if ($request_id) {
+    $sql = "SELECT mr.*, u.full_name as patient_name, u.email_address, u.location as patient_location
+            FROM hc_medical_requests mr
+            JOIN hc_users u ON mr.patient_id = u.user_id
+            WHERE mr.request_id = :request_id";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':request_id' => $request_id]);
+    $request = $stmt->fetch();
+    
+    if (!$request) {
+        $message = 'Request not found or already responded to';
+        $message_type = 'warning';
+    }
 }
 
-if (!empty($urgency) && $urgency !== 'all') {
-    $sql .= " AND r.urgency_level = :urgency";
-    $params[':urgency'] = $urgency;
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_response'])) {
+    $response_text = $_POST['response_text'] ?? '';
+    
+    if (empty($response_text)) {
+        $message = 'Please provide a response';
+        $message_type = 'danger';
+    } elseif (strlen($response_text) < 10) {
+        $message = 'Response should be at least 10 characters long';
+        $message_type = 'danger';
+    } else {
+        try {
+            $pdo->beginTransaction();
+            
+            // Check if request is still pending
+            $check_sql = "SELECT request_status FROM hc_medical_requests WHERE request_id = :request_id";
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([':request_id' => $request_id]);
+            $request_status = $check_stmt->fetchColumn();
+            
+            if ($request_status === 'pending') {
+                // Update request with response
+                $update_sql = "UPDATE hc_medical_requests 
+                               SET responded_by_user_id = :user_id, 
+                                   response_text = :response_text,
+                                   request_status = 'responded',
+                                   response_date = NOW()
+                               WHERE request_id = :request_id";
+                
+                $update_stmt = $pdo->prepare($update_sql);
+                $update_stmt->execute([
+                    ':user_id' => $user_id,
+                    ':response_text' => $response_text,
+                    ':request_id' => $request_id
+                ]);
+                
+                // Log activity
+                $log_sql = "INSERT INTO hc_activity_logs (user_id, activity_type, activity_description) 
+                            VALUES (:user_id, 'response_added', :description)";
+                $log_stmt = $pdo->prepare($log_sql);
+                $log_stmt->execute([
+                    ':user_id' => $user_id,
+                    ':description' => 'Responded to request ' . $request_id . ' as ' . $user_role
+                ]);
+                
+                $pdo->commit();
+                
+                $message = 'Response submitted successfully! The patient has been notified.';
+                $message_type = 'success';
+                
+                // Clear form
+                $_POST = [];
+                
+                // Refresh request data
+                $stmt->execute([':request_id' => $request_id]);
+                $request = $stmt->fetch();
+            } else {
+                $message = 'This request has already been responded to or is closed.';
+                $message_type = 'warning';
+                $pdo->rollBack();
+            }
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $message = 'Error submitting response: ' . $e->getMessage();
+            $message_type = 'danger';
+        }
+    }
 }
-
-if (!empty($category) && $category !== 'all') {
-    $sql .= " AND r.category = :category";
-    $params[':category'] = $category;
-}
-
-$sql .= " ORDER BY 
-            CASE r.urgency_level 
-                WHEN 'high' THEN 1
-                WHEN 'medium' THEN 2
-                WHEN 'low' THEN 3
-                ELSE 4
-            END, 
-            r.request_date DESC";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$requests = $stmt->fetchAll();
-
-// Get available categories for filter
-$category_sql = "SELECT DISTINCT category FROM hc_medical_requests WHERE category IS NOT NULL AND category != ''";
-$category_stmt = $pdo->prepare($category_sql);
-$category_stmt->execute();
-$categories = $category_stmt->fetchAll(PDO::FETCH_COLUMN);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Help Requests - HealthConnect</title>
+    <title>Respond to Request - HealthConnect</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../../assets/css/style.css">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
         :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #052c65;
+            --success-color: #20c997;
+            --doctor-primary: #0d6efd;
+            --doctor-secondary: #052c65;
             --volunteer-primary: #198754;
             --volunteer-secondary: #146c43;
         }
         
-        .page-header {
-            background: linear-gradient(135deg, var(--volunteer-primary) 0%, var(--volunteer-secondary) 100%);
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+            min-height: 100vh;
+            opacity: 0;
+            animation: fadeIn 0.8s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .respond-container {
+            max-width: 900px;
+            margin: 30px auto;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            transition: all 0.5s ease;
+            animation: slideUp 0.6s ease forwards;
+            opacity: 0;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             color: white;
-            padding: 40px 0;
-            margin-bottom: 30px;
+            border-radius: 20px 20px 0 0 !important;
+            padding: 25px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23ffffff" fill-opacity="0.1" d="M0,160L48,165.3C96,171,192,181,288,181.3C384,181,480,171,576,165.3C672,160,768,160,864,170.7C960,181,1056,203,1152,202.7C1248,203,1344,181,1392,170.7L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>');
+            background-size: cover;
+            animation: float 20s ease-in-out infinite;
+        }
+        
+        .request-info {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 4px solid var(--primary-color);
+            animation: slideUp 0.6s ease 0.2s forwards;
+            opacity: 0;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        
+        textarea {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s;
+            min-height: 200px;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+            transform: translateY(-2px);
+        }
+        
+        .btn-submit {
+            background: linear-gradient(135deg, var(--success-color), #198754);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(32, 201, 151, 0.3);
+        }
+        
+        .btn-submit:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .char-count {
+            font-size: 12px;
+            color: #6c757d;
         }
         
         .urgency-badge {
-            padding: 5px 12px;
+            padding: 6px 15px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
-        }
-        
-        .urgency-high {
-            background: rgba(220, 53, 69, 0.1);
-            color: #dc3545;
-            border: 1px solid #dc3545;
-        }
-        
-        .urgency-medium {
-            background: rgba(255, 193, 7, 0.1);
-            color: #ffc107;
-            border: 1px solid #ffc107;
-        }
-        
-        .urgency-low {
-            background: rgba(13, 202, 240, 0.1);
-            color: #0dcaf0;
-            border: 1px solid #0dcaf0;
-        }
-        
-        .request-card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
-            margin-bottom: 20px;
-            border-left: 4px solid var(--volunteer-primary);
-        }
-        
-        .request-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
-        }
-        
-        .request-card.responded {
-            border-left: 4px solid #6c757d;
-            opacity: 0.8;
-        }
-        
-        .category-tag {
             display: inline-block;
-            background: #e9ecef;
-            color: #495057;
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            margin-right: 5px;
-            margin-bottom: 5px;
+            transition: all 0.3s;
         }
         
-        .time-badge {
-            background: #f8f9fa;
-            color: #6c757d;
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 12px;
+        .urgency-badge:hover {
+            transform: scale(1.05);
         }
         
-        .patient-info {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
+        .urgency-high { 
+            background: linear-gradient(135deg, #dc3545, #fd7e14);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        .urgency-medium { 
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: white;
+        }
+        .urgency-low { 
+            background: linear-gradient(135deg, #20c997, #198754);
+            color: white;
         }
         
-        .response-form {
-            background: linear-gradient(135deg, rgba(25, 135, 84, 0.05), rgba(20, 108, 67, 0.05));
-            border-radius: 10px;
-            padding: 20px;
-            border: 1px solid rgba(25, 135, 84, 0.1);
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
         
-        .filter-card {
-            background: white;
+        .response-guidelines {
+            background: #e8f4fc;
             border-radius: 10px;
             padding: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
+            border-left: 4px solid var(--success-color);
+            animation: slideUp 0.6s ease 0.3s forwards;
+            opacity: 0;
         }
         
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
+        .response-guidelines h6 {
+            color: var(--secondary-color);
         }
         
-        .empty-state-icon {
-            font-size: 60px;
-            color: #6c757d;
-            margin-bottom: 20px;
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
         }
         
-        .modal-lg-custom {
-            max-width: 800px;
+        .particle {
+            position: absolute;
+            background: rgba(13, 110, 253, 0.05);
+            border-radius: 50%;
+            animation: floatParticle 20s infinite linear;
+        }
+        
+        @keyframes floatParticle {
+            0% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px);
+                opacity: 0;
+            }
+        }
+        
+        .role-badge {
+            background: <?php echo $user_role === 'doctor' ? 'linear-gradient(135deg, var(--doctor-primary), var(--doctor-secondary))' : 'linear-gradient(135deg, var(--volunteer-primary), var(--volunteer-secondary))'; ?>;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-block;
+            box-shadow: 0 4px 15px <?php echo $user_role === 'doctor' ? 'rgba(13, 110, 253, 0.3)' : 'rgba(25, 135, 84, 0.3)'; ?>;
+        }
+        
+        .role-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: <?php echo $user_role === 'doctor' ? 'rgba(13, 110, 253, 0.1)' : 'rgba(25, 135, 84, 0.1)'; ?>;
+            color: <?php echo $user_role === 'doctor' ? 'var(--doctor-primary)' : 'var(--volunteer-primary)'; ?>;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-right: 10px;
+        }
+        
+        .status-badge {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-pending {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: white;
+        }
+        
+        .status-responded {
+            background: linear-gradient(135deg, #0dcaf0, #0d6efd);
+            color: white;
+        }
+        
+        .status-closed {
+            background: linear-gradient(135deg, #198754, #146c43);
+            color: white;
+        }
+        
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ripple::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: -100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.3), 
+                transparent);
+            transition: left 0.5s;
+        }
+        
+        .ripple:hover::after {
+            left: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            .respond-container {
+                margin: 15px;
+            }
+            
+            .card-header {
+                padding: 20px;
+            }
+            
+            textarea {
+                min-height: 150px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Floating Background Particles -->
+    <div class="floating-particles">
+        <?php for ($i = 0; $i < 10; $i++): ?>
+            <div class="particle" 
+                 style="width: <?php echo rand(2, 6); ?>px; 
+                        height: <?php echo rand(2, 6); ?>px;
+                        left: <?php echo rand(0, 100); ?>%;
+                        animation-delay: <?php echo rand(0, 20); ?>s;
+                        animation-duration: <?php echo rand(15, 30); ?>s;"></div>
+        <?php endfor; ?>
+    </div>
+    
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold text-primary" href="../../index.php">
                 <i class="fas fa-heartbeat me-2"></i>HealthConnect
@@ -226,34 +448,31 @@ $categories = $category_stmt->fetchAll(PDO::FETCH_COLUMN);
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="volunteer-dashboard.php">
+                        <a class="nav-link" href="<?php echo $user_role . '-dashboard.php'; ?>">
                             <i class="fas fa-home me-1"></i> Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="respond-requests.php">
-                            <i class="fas fa-hands-helping me-1"></i> Help Requests
+                            <i class="fas fa-hands-helping me-1"></i> Respond to Requests
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="my-responses.php">
-                            <i class="fas fa-history me-1"></i> My Responses
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="resources.php">
-                            <i class="fas fa-book-medical me-1"></i> Resources
-                        </a>
+                        <div class="d-flex align-items-center">
+                            <div class="role-icon">
+                                <i class="fas <?php echo $user_role === 'doctor' ? 'fa-user-md' : 'fa-hands-helping'; ?>"></i>
+                            </div>
+                            <div class="role-badge">
+                                <?php echo ucfirst($user_role); ?>
+                            </div>
+                        </div>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                            <div class="profile-avatar-small bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">
-                                <?php echo strtoupper(substr($user_name, 0, 1)); ?>
-                            </div>
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle me-1"></i> <?php echo htmlspecialchars(explode(' ', $user_name)[0]); ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
-                            <li><a class="dropdown-item" href="settings.php"><i class="fas fa-cog me-2"></i> Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
                         </ul>
@@ -263,322 +482,164 @@ $categories = $category_stmt->fetchAll(PDO::FETCH_COLUMN);
         </div>
     </nav>
 
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-8">
-                    <h1 class="fw-bold mb-3">Help Those in Need 🙏</h1>
-                    <p class="lead mb-0">Provide medical advice and support to patients in rural areas.</p>
-                </div>
-                <div class="col-lg-4 text-end">
-                    <div class="alert alert-light d-inline-block">
-                        <i class="fas fa-info-circle text-success me-2"></i>
-                        <strong><?php echo count($requests); ?></strong> requests need your help
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Main Content -->
-    <div class="container">
-        <!-- Success Message -->
-        <?php if (isset($_GET['success']) && $_GET['success'] === 'responded'): ?>
-            <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
-                <i class="fas fa-check-circle me-2"></i>
-                <strong>Thank you!</strong> Your response has been submitted and will help the patient.
+    <div class="container respond-container">
+        <?php if ($message): ?>
+            <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show animate__animated animate__fadeIn" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas <?php echo $message_type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> me-2 fa-lg"></i>
+                    <div><?php echo htmlspecialchars($message); ?></div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
-
-        <!-- Search and Filters -->
-        <div class="filter-card">
-            <h5 class="fw-bold mb-4"><i class="fas fa-filter me-2"></i> Filter Requests</h5>
-            <form method="GET" action="respond-requests.php">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Search</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input type="text" class="form-control border-start-0" 
-                                   name="search" placeholder="Search by title, description, or patient name..."
-                                   value="<?php echo htmlspecialchars($search); ?>">
-                        </div>
+        
+        <?php if (!$request && empty($message)): ?>
+            <!-- Request Not Found -->
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-exclamation-triangle fa-4x text-warning"></i>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Urgency Level</label>
-                        <select class="form-select" name="urgency">
-                            <option value="all" <?php echo $urgency === 'all' || empty($urgency) ? 'selected' : ''; ?>>All Urgency Levels</option>
-                            <option value="high" <?php echo $urgency === 'high' ? 'selected' : ''; ?>>High Priority</option>
-                            <option value="medium" <?php echo $urgency === 'medium' ? 'selected' : ''; ?>>Medium Priority</option>
-                            <option value="low" <?php echo $urgency === 'low' ? 'selected' : ''; ?>>Low Priority</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Category</label>
-                        <select class="form-select" name="category">
-                            <option value="all" <?php echo $category === 'all' || empty($category) ? 'selected' : ''; ?>>All Categories</option>
-                            <?php foreach ($categories as $cat): ?>
-                                <option value="<?php echo htmlspecialchars($cat); ?>" 
-                                    <?php echo $category === $cat ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars(ucfirst($cat)); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                    <h2 class="mb-3">Request Not Found</h2>
+                    <p class="text-muted mb-4">The request you're trying to respond to doesn't exist or has been closed.</p>
+                    <a href="respond-requests.php" class="btn btn-primary ripple">
+                        <i class="fas fa-arrow-left me-2"></i> Back to Requests
+                    </a>
                 </div>
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between">
-                            <button type="submit" class="btn btn-success px-4">
-                                <i class="fas fa-filter me-2"></i> Apply Filters
-                            </button>
-                            <a href="respond-requests.php" class="btn btn-outline-secondary">
-                                <i class="fas fa-times me-2"></i> Clear Filters
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Requests List -->
-        <?php if (empty($requests)): ?>
-            <div class="empty-state">
-                <div class="empty-state-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <h3 class="fw-bold mb-3">No Requests Found!</h3>
-                <p class="text-muted mb-4">All current requests have been responded to. Check back later for new requests.</p>
-                <a href="volunteer-dashboard.php" class="btn btn-success">
-                    <i class="fas fa-home me-2"></i> Back to Dashboard
-                </a>
             </div>
-        <?php else: ?>
-            <div class="row">
-                <?php foreach ($requests as $request): ?>
-                    <div class="col-lg-6 mb-4">
-                        <div class="request-card p-4">
-                            <!-- Request Header -->
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div>
-                                    <span class="urgency-badge urgency-<?php echo $request['urgency_level']; ?>">
-                                        <i class="fas fa-exclamation-circle me-1"></i>
-                                        <?php echo ucfirst($request['urgency_level']); ?> Priority
+        <?php elseif ($request && $request['request_status'] !== 'pending'): ?>
+            <!-- Request Already Responded -->
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-check-circle fa-4x text-success"></i>
+                    </div>
+                    <h2 class="mb-3">Request Already Responded</h2>
+                    <p class="text-muted mb-4">
+                        This request has already been addressed by another healthcare professional.
+                        <br>
+                        Current status: 
+                        <span class="status-badge status-<?php echo $request['request_status']; ?> ms-2">
+                            <?php echo ucfirst($request['request_status']); ?>
+                        </span>
+                    </p>
+                    <a href="respond-requests.php" class="btn btn-primary ripple">
+                        <i class="fas fa-hands-helping me-2"></i> Help Other Patients
+                    </a>
+                </div>
+            </div>
+        <?php elseif ($request): ?>
+            <!-- Respond Form -->
+            <div class="card">
+                <div class="card-header position-relative">
+                    <h4 class="mb-0 fw-bold">
+                        <i class="fas fa-comment-medical me-2"></i> Provide Medical Response
+                    </h4>
+                    <p class="mb-0 opacity-75 mt-2">Share your professional medical advice as <?php echo $user_role; ?></p>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Request Information -->
+                    <div class="request-info">
+                        <h5 class="fw-bold mb-3 text-primary">
+                            <i class="fas fa-file-medical me-2"></i> Request Details
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Patient</div>
+                                <div class="fw-bold"><?php echo htmlspecialchars($request['patient_name']); ?></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Location</div>
+                                <div class="fw-bold"><?php echo htmlspecialchars($request['patient_location'] ?? 'Not specified'); ?></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Urgency Level</div>
+                                <div class="fw-bold">
+                                    <span class="urgency-badge urgency-<?php echo strtolower($request['urgency_level'] ?? 'medium'); ?>">
+                                        <?php echo $request['urgency_level'] ? htmlspecialchars($request['urgency_level']) : 'Medium'; ?>
                                     </span>
                                 </div>
-                                <span class="time-badge">
-                                    <i class="far fa-clock me-1"></i>
-                                    <?php echo timeAgo($request['request_date']); ?>
-                                </span>
                             </div>
-                            
-                            <!-- Request Title -->
-                            <h5 class="fw-bold mb-3"><?php echo htmlspecialchars($request['request_title']); ?></h5>
-                            
-                            <!-- Category -->
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Request Date</div>
+                                <div class="fw-bold">
+                                    <?php echo date('F j, Y \a\t g:i A', strtotime($request['request_date'])); ?>
+                                </div>
+                            </div>
                             <?php if ($request['category']): ?>
-                                <div class="mb-3">
-                                    <span class="category-tag">
-                                        <i class="fas fa-tag me-1"></i>
-                                        <?php echo htmlspecialchars(ucfirst($request['category'])); ?>
-                                    </span>
+                                <div class="col-md-6 mb-3">
+                                    <div class="text-muted small">Category</div>
+                                    <div class="fw-bold"><?php echo htmlspecialchars(ucfirst($request['category'])); ?></div>
                                 </div>
                             <?php endif; ?>
-                            
-                            <!-- Request Description -->
-                            <p class="text-muted mb-4">
-                                <?php echo nl2br(htmlspecialchars(substr($request['request_description'], 0, 200))); ?>
-                                <?php if (strlen($request['request_description']) > 200): ?>
-                                    ... <a href="#" data-bs-toggle="modal" data-bs-target="#requestModal<?php echo $request['request_id']; ?>" class="text-success">Read more</a>
-                                <?php endif; ?>
-                            </p>
-                            
-                            <!-- Patient Info -->
-                            <div class="patient-info">
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-shrink-0">
-                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-user"></i>
-                                        </div>
-                                    </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 class="fw-bold mb-1"><?php echo htmlspecialchars($request['patient_name']); ?></h6>
-                                        <?php if ($request['patient_profession']): ?>
-                                            <p class="text-muted small mb-0">
-                                                <i class="fas fa-briefcase me-1"></i>
-                                                <?php echo htmlspecialchars($request['patient_profession']); ?>
-                                            </p>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Action Buttons -->
-                            <div class="d-grid gap-2">
-                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#responseModal<?php echo $request['request_id']; ?>">
-                                    <i class="fas fa-comment-medical me-2"></i> Provide Help
-                                </button>
-                                <a href="#" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#requestModal<?php echo $request['request_id']; ?>">
-                                    <i class="fas fa-eye me-2"></i> View Details
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Request Details Modal -->
-                    <div class="modal fade" id="requestModal<?php echo $request['request_id']; ?>" tabindex="-1">
-                        <div class="modal-dialog modal-lg-custom">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Request Details</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-4">
-                                        <span class="urgency-badge urgency-<?php echo $request['urgency_level']; ?> mb-3 d-inline-block">
-                                            <i class="fas fa-exclamation-circle me-1"></i>
-                                            <?php echo ucfirst($request['urgency_level']); ?> Priority
-                                        </span>
-                                        <h4 class="fw-bold"><?php echo htmlspecialchars($request['request_title']); ?></h4>
-                                        <p class="text-muted">
-                                            <i class="far fa-clock me-1"></i>
-                                            Posted <?php echo date('F j, Y g:i A', strtotime($request['request_date'])); ?>
-                                        </p>
-                                    </div>
-                                    
-                                    <div class="mb-4">
-                                        <h6 class="fw-bold mb-2">Description</h6>
-                                        <div class="bg-light p-3 rounded">
-                                            <?php echo nl2br(htmlspecialchars($request['request_description'])); ?>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="patient-info">
-                                        <h6 class="fw-bold mb-3">About the Patient</h6>
-                                        <div class="d-flex align-items-center">
-                                            <div class="flex-shrink-0">
-                                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                                    <i class="fas fa-user"></i>
-                                                </div>
-                                            </div>
-                                            <div class="flex-grow-1 ms-3">
-                                                <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($request['patient_name']); ?></h5>
-                                                <?php if ($request['patient_profession']): ?>
-                                                    <p class="text-muted mb-0">
-                                                        <i class="fas fa-briefcase me-1"></i>
-                                                        <?php echo htmlspecialchars($request['patient_profession']); ?>
-                                                    </p>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#responseModal<?php echo $request['request_id']; ?>" data-bs-dismiss="modal">
-                                        <i class="fas fa-comment-medical me-2"></i> Provide Help
-                                    </button>
+                            <div class="col-12">
+                                <div class="text-muted small">Patient's Concern</div>
+                                <div class="bg-white p-3 rounded mt-2">
+                                    <?php echo nl2br(htmlspecialchars($request['request_description'])); ?>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Response Modal -->
-                    <div class="modal fade" id="responseModal<?php echo $request['request_id']; ?>" tabindex="-1">
-                        <div class="modal-dialog modal-lg-custom">
-                            <div class="modal-content">
-                                <form method="POST" action="respond-requests.php">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Provide Medical Help</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <input type="hidden" name="request_id" value="<?php echo $request['request_id']; ?>">
-                                        <input type="hidden" name="respond_to_request" value="1">
-                                        
-                                        <div class="alert alert-info">
-                                            <i class="fas fa-lightbulb me-2"></i>
-                                            <strong>Tips for a good response:</strong> Be clear, professional, and compassionate. Include specific advice when possible.
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <h6 class="fw-bold mb-2">Request Summary</h6>
-                                            <div class="bg-light p-3 rounded">
-                                                <p class="fw-bold mb-1"><?php echo htmlspecialchars($request['request_title']); ?></p>
-                                                <p class="text-muted mb-0"><?php echo htmlspecialchars(substr($request['request_description'], 0, 150)); ?>...</p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="response-form">
-                                            <div class="mb-3">
-                                                <label class="form-label fw-bold">Your Response *</label>
-                                                <textarea class="form-control" name="response_text" rows="8" 
-                                                          placeholder="Provide your medical advice, suggestions, or guidance here. Be as detailed as possible..." 
-                                                          required></textarea>
-                                                <div class="form-text">
-                                                    Minimum 50 characters. Include:
-                                                    <ul class="mb-0">
-                                                        <li>Clear medical advice</li>
-                                                        <li>Recommended actions</li>
-                                                        <li>When to seek in-person care</li>
-                                                        <li>Any helpful resources</li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label fw-bold">Response Type</label>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="response_type" id="advice<?php echo $request['request_id']; ?>" value="advice" checked>
-                                                    <label class="form-check-label" for="advice<?php echo $request['request_id']; ?>">
-                                                        <i class="fas fa-comment-medical me-1"></i> Medical Advice
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="response_type" id="referral<?php echo $request['request_id']; ?>" value="referral">
-                                                    <label class="form-check-label" for="referral<?php echo $request['request_id']; ?>">
-                                                        <i class="fas fa-hospital me-1"></i> Specialist Referral Suggestion
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="response_type" id="resources<?php echo $request['request_id']; ?>" value="resources">
-                                                    <label class="form-check-label" for="resources<?php echo $request['request_id']; ?>">
-                                                        <i class="fas fa-book-medical me-1"></i> Provide Resources
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="alert alert-warning">
-                                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                                <strong>Disclaimer:</strong> Your response is for informational purposes only and does not replace professional medical care. Always advise patients to seek in-person medical attention for serious conditions.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                                        <button type="submit" class="btn btn-success">
-                                            <i class="fas fa-paper-plane me-2"></i> Submit Response
-                                        </button>
-                                    </div>
-                                </form>
+                    <!-- Response Guidelines -->
+                    <div class="response-guidelines mb-4">
+                        <h6 class="fw-bold mb-3">
+                            <i class="fas fa-graduation-cap me-2"></i> Response Guidelines
+                        </h6>
+                        <ul class="small mb-0">
+                            <li>Provide clear, professional medical advice</li>
+                            <li>Use simple language that patients can understand</li>
+                            <li>Include recommendations for next steps if needed</li>
+                            <li>Mention if the patient should seek in-person medical attention</li>
+                            <li>Avoid prescribing specific medications without proper consultation</li>
+                            <li>Always emphasize when to seek emergency care</li>
+                            <?php if ($user_role === 'volunteer'): ?>
+                                <li class="text-warning fw-bold">As a volunteer, focus on general advice and refer to professionals when needed</li>
+                            <?php endif; ?>
+                        </ul>
+                    </div>
+                    
+                    <!-- Response Form -->
+                    <form method="POST" id="responseForm">
+                        <div class="mb-4">
+                            <label for="response_text" class="form-label fw-bold">
+                                <i class="fas fa-comment-medical me-2"></i> Your Professional Response
+                            </label>
+                            <textarea 
+                                name="response_text" 
+                                id="response_text" 
+                                class="form-control" 
+                                placeholder="Type your medical response here. Be professional, clear, and helpful..."
+                                required><?php echo htmlspecialchars($_POST['response_text'] ?? ''); ?></textarea>
+                            <div class="char-count mt-1 text-end">
+                                <span id="charCount">0</span> characters (Minimum: 50, Maximum: 5000)
                             </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-            
-            <!-- Pagination Info -->
-            <div class="d-flex justify-content-between align-items-center mt-4">
-                <p class="text-muted mb-0">
-                    Showing <strong><?php echo count($requests); ?></strong> of <strong><?php echo count($requests); ?></strong> requests
-                </p>
-                <a href="#top" class="btn btn-outline-success">
-                    <i class="fas fa-arrow-up me-2"></i> Back to Top
-                </a>
+                        
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-start">
+                                <i class="fas fa-info-circle fa-lg me-3 mt-1"></i>
+                                <div>
+                                    <strong>Important:</strong> Your response will be sent to the patient and saved in their medical records. 
+                                    Always recommend professional medical consultation for serious conditions.
+                                    <?php if ($user_role === 'volunteer'): ?>
+                                        <br><strong>Note:</strong> As a volunteer, your response should focus on general advice and emotional support.
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="view-request.php?id=<?php echo $request_id; ?>" class="btn btn-outline-secondary ripple">
+                                <i class="fas fa-arrow-left me-2"></i> Back to Request
+                            </a>
+                            <button type="submit" name="submit_response" class="btn-submit ripple">
+                                <i class="fas fa-paper-plane me-2"></i> Submit Response
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -589,13 +650,13 @@ $categories = $category_stmt->fetchAll(PDO::FETCH_COLUMN);
             <div class="row align-items-center">
                 <div class="col-md-6">
                     <p class="mb-0 text-muted">
-                        <i class="fas fa-hands-helping text-success me-2"></i>
-                        HealthConnect Volunteer Portal
+                        <i class="fas fa-heartbeat text-primary me-2"></i>
+                        HealthConnect Response System
                     </p>
                 </div>
                 <div class="col-md-6 text-end">
                     <p class="mb-0 text-muted">
-                        Need help? <a href="resources.php" class="text-success">Visit Resources</a>
+                        &copy; <?php echo date('Y'); ?> HealthConnect. Providing healthcare access to all.
                     </p>
                 </div>
             </div>
@@ -605,80 +666,162 @@ $categories = $category_stmt->fetchAll(PDO::FETCH_COLUMN);
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Character counter for response text
-        document.querySelectorAll('textarea[name="response_text"]').forEach(textarea => {
-            const formGroup = textarea.closest('.mb-3');
-            const counter = document.createElement('div');
-            counter.className = 'form-text text-end';
-            counter.innerHTML = '<span class="char-count">0</span> / 5000 characters';
-            formGroup.appendChild(counter);
+        // Character count
+        const responseText = document.getElementById('response_text');
+        const charCount = document.getElementById('charCount');
+        
+        responseText.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
             
-            textarea.addEventListener('input', function() {
-                const charCount = this.value.length;
-                counter.querySelector('.char-count').textContent = charCount;
-                
-                if (charCount < 50) {
-                    counter.style.color = '#dc3545';
-                } else if (charCount < 100) {
-                    counter.style.color = '#ffc107';
-                } else {
-                    counter.style.color = '#198754';
+            // Update color based on character count
+            if (this.value.length < 50) {
+                charCount.style.color = '#dc3545';
+            } else if (this.value.length < 100) {
+                charCount.style.color = '#ffc107';
+            } else if (this.value.length < 5000) {
+                charCount.style.color = '#198754';
+            } else {
+                charCount.style.color = '#dc3545';
+            }
+        });
+        
+        // Initialize count
+        charCount.textContent = responseText.value.length;
+        responseText.dispatchEvent(new Event('input'));
+        
+        // Form validation
+        document.getElementById('responseForm').addEventListener('submit', function(e) {
+            const response = responseText.value.trim();
+            
+            if (response.length < 50) {
+                e.preventDefault();
+                alert('Response should be at least 50 characters long to provide meaningful help.');
+                responseText.focus();
+                return false;
+            }
+            
+            if (response.length > 5000) {
+                e.preventDefault();
+                alert('Response is too long. Please keep it under 5000 characters for readability.');
+                responseText.focus();
+                return false;
+            }
+            
+            // Show loading animation
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
+            submitBtn.disabled = true;
+            
+            return true;
+        });
+        
+        // Add animations
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fade in content
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+                document.body.style.transform = 'translateY(0)';
+            }, 100);
+            
+            // Auto-hide alerts after 5 seconds
+            setTimeout(() => {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }, 5000);
+            
+            // Add CSS for animations
+            const style = document.createElement('style');
+            style.textContent = `
+                .ripple-effect {
+                    position: absolute;
+                    border-radius: 50%;
+                    background: rgba(255, 255, 255, 0.6);
+                    transform: scale(0);
+                    animation: ripple-animation 0.6s linear;
                 }
-            });
-            
-            // Trigger initial count
-            textarea.dispatchEvent(new Event('input'));
-        });
-        
-        // Auto-focus on response modal when opened
-        document.addEventListener('shown.bs.modal', function(event) {
-            const modal = event.target;
-            const textarea = modal.querySelector('textarea[name="response_text"]');
-            if (textarea) {
-                textarea.focus();
-            }
-        });
-        
-        // Auto-close modals when response submitted
-        document.addEventListener('submit', function(event) {
-            if (event.target.closest('form') && event.target.querySelector('input[name="respond_to_request"]')) {
-                setTimeout(() => {
-                    const modal = bootstrap.Modal.getInstance(event.target.closest('.modal'));
-                    if (modal) {
-                        modal.hide();
+                
+                @keyframes ripple-animation {
+                    to {
+                        transform: scale(4);
+                        opacity: 0;
                     }
-                }, 100);
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Add ripple effect to buttons
+            document.querySelectorAll('.btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    const x = e.clientX - e.target.getBoundingClientRect().left;
+                    const y = e.clientY - e.target.getBoundingClientRect().top;
+                    
+                    const ripple = document.createElement('span');
+                    ripple.style.left = x + 'px';
+                    ripple.style.top = y + 'px';
+                    ripple.classList.add('ripple-effect');
+                    
+                    this.appendChild(ripple);
+                    
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+        });
+        
+        // Auto-save draft (optional feature)
+        let autoSaveTimer;
+        responseText.addEventListener('input', function() {
+            clearTimeout(autoSaveTimer);
+            if (this.value.length > 0) {
+                autoSaveTimer = setTimeout(() => {
+                    localStorage.setItem('response_draft_' + <?php echo $request_id; ?>, this.value);
+                    
+                    // Show auto-save notification
+                    const notification = document.createElement('div');
+                    notification.className = 'position-fixed bottom-0 end-0 m-3 alert alert-success alert-dismissible fade show';
+                    notification.style.zIndex = '9999';
+                    notification.innerHTML = `
+                        <i class="fas fa-save me-2"></i>
+                        Draft auto-saved
+                        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 2000);
+                }, 3000);
             }
         });
         
-        // Smooth scroll to top
-        document.querySelector('a[href="#top"]').addEventListener('click', function(e) {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Load draft on page load
+        window.addEventListener('load', function() {
+            const draft = localStorage.getItem('response_draft_' + <?php echo $request_id; ?>);
+            if (draft && !responseText.value) {
+                responseText.value = draft;
+                charCount.textContent = draft.length;
+                responseText.dispatchEvent(new Event('input'));
+                
+                // Show draft loaded notification
+                const notification = document.createElement('div');
+                notification.className = 'alert alert-info alert-dismissible fade show mb-3';
+                notification.innerHTML = `
+                    <i class="fas fa-history me-2"></i>
+                    Draft restored from previous session
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.respond-container').insertBefore(notification, document.querySelector('.respond-container').firstChild);
+            }
+        });
+        
+        // Clear draft on successful submission
+        document.getElementById('responseForm').addEventListener('submit', function() {
+            localStorage.removeItem('response_draft_' + <?php echo $request_id; ?>);
         });
     </script>
 </body>
 </html>
-
-<?php
-// Helper function to display time ago
-function timeAgo($datetime) {
-    $time = strtotime($datetime);
-    $diff = time() - $time;
-    
-    if ($diff < 60) {
-        return 'just now';
-    } elseif ($diff < 3600) {
-        $mins = floor($diff / 60);
-        return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 86400) {
-        $hours = floor($diff / 3600);
-        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 604800) {
-        $days = floor($diff / 86400);
-        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-    } else {
-        return date('M j, Y', $time);
-    }
-}
-?>
