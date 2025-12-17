@@ -342,7 +342,7 @@ if ($action === 'register') {
                 'success' => true,
                 'message' => 'Registration successful! ' . 
                             ($user_role === 'doctor' ? 'Your account is pending admin approval.' : 'You can now login.'),
-                'redirect' => 'foureiratou.idi/healthConnect/views/auth/login.php'
+                'redirect' => 'login.php'
             ]);
             
         } catch (Exception $e) {
