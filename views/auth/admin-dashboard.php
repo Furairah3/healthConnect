@@ -61,13 +61,13 @@ $activity_stmt = $pdo->query($activity_sql);
 $activity = $activity_stmt->fetch();
 
 // Get request statistics for reports
-// Get request statistics for reports - FIXED VERSION
+// Get request statistics for reports - SIMPLIFIED VERSION
 $reports_sql = "SELECT 
     COUNT(*) as total,
-    SUM(CASE WHEN urgency_level = 'high' THEN 1 ELSE 0 END) as high_priority,
-    SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) as pending,
-    SUM(CASE WHEN request_status = 'responded' THEN 1 ELSE 0 END) as responded,
-    SUM(CASE WHEN request_status = 'closed' THEN 1 ELSE 0 END) as closed,
+    SUM(IF(urgency_level = 'high', 1, 0)) as high_priority,
+    SUM(IF(request_status = 'pending', 1, 0)) as pending,
+    SUM(IF(request_status = 'responded', 1, 0)) as responded,
+    SUM(IF(request_status = 'closed', 1, 0)) as closed,
     COUNT(DISTINCT patient_id) as unique_patients
     FROM hc_medical_requests";
 $reports_stmt = $pdo->query($reports_sql);
