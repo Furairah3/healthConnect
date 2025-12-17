@@ -740,7 +740,7 @@ $stats = $stats_stmt->fetch();
                             <?php endif; ?>
                             
                             <div class="d-flex justify-content-center gap-2">
-                                <a href="view-requests.php?patient_id=<?php echo $patient['user_id']; ?>" 
+                                <a href="respond-requests.php?patient_id=<?php echo $patient['user_id']; ?>" 
                                    class="btn btn-outline-primary btn-action">
                                     <i class="fas fa-eye me-1"></i> View
                                 </a>
