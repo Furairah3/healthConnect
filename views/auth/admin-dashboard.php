@@ -61,27 +61,15 @@ $activity_stmt = $pdo->query($activity_sql);
 $activity = $activity_stmt->fetch();
 
 // Get request statistics for reports
-// Get request statistics for reports - MINIMAL VERSION
-$reports_sql = "SELECT COUNT(*) as total FROM hc_medical_requests";
-$reports_stmt = $pdo->query($reports_sql);
-$total = $reports_stmt->fetchColumn();
-
-$reports_sql2 = "SELECT COUNT(*) as high_priority FROM hc_medical_requests WHERE urgency_level = 'high'";
-$reports_stmt2 = $pdo->query($reports_sql2);
-$high_priority = $reports_stmt2->fetchColumn();
-
-$reports_sql3 = "SELECT COUNT(*) as pending FROM hc_medical_requests WHERE request_status = 'pending'";
-$reports_stmt3 = $pdo->query($reports_sql3);
-$pending = $reports_stmt3->fetchColumn();
-
-$report_stats = [
-    'total' => $total,
-    'high_priority' => $high_priority,
-    'pending' => $pending,
-    'responded' => 0, // You can add queries for these too
-    'closed' => 0,
-    'unique_patients' => 0
-];
+// Simple version without CASE statements
+$reports_sql = "SELECT 
+    COUNT(*) as total,
+    (SELECT COUNT(*) FROM hc_medical_requests WHERE urgency_level = 'high') as high_priority_count,
+    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'pending') as pending_count,
+    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'responded') as responded_count,
+    (SELECT COUNT(*) FROM hc_medical_requests WHERE request_status = 'closed') as closed_count,
+    COUNT(DISTINCT patient_id) as unique_patients
+    FROM hc_medical_requests";
 ?>
 
 <!DOCTYPE html>
