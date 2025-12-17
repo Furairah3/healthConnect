@@ -2,7 +2,6 @@
 // healthconnect/views/auth/doctor-dashboard.php
 session_start();
 require_once '../../app/config/database.php';
-
 // Check if user is logged in and is a doctor
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
     header('Location: login.php?error=required');
@@ -689,7 +688,7 @@ $activity = $activity_stmt->fetch();
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
                             <li><a class="dropdown-item" href="verification.php"><i class="fas fa-badge-check me-2"></i> Verification</a></li>
-                            <li><a class="dropdown-item" href="settings.php"><i class="fas fa-cog me-2"></i> Settings</a></li>
+                    
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
                         </ul>
@@ -739,7 +738,7 @@ $activity = $activity_stmt->fetch();
                 </div>
                 <div class="col-lg-4 text-end position-relative">
                     <div class="mb-4">
-                        <a href="verification.php" 
+        
                         class="doctor-badge me-3 btn-lift">
                             <i class="fas fa-badge-check me-1"></i> Verified Doctor
                         </a>
