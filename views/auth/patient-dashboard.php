@@ -576,7 +576,7 @@ $activity = $activity_stmt->fetch();
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
-                            <li><a class="dropdown-item" href="medical-history.php"><i class="fas fa-file-medical me-2"></i> Medical History</a></li>
+                            <li><a class="dropdown-item" href="reports.php"><i class="fas fa-file-medical me-2"></i> Medical History</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
                         </ul>
@@ -925,7 +925,7 @@ $activity = $activity_stmt->fetch();
                             <div class="progress-bar bg-warning" style="width: <?php echo ($stats['pending_requests'] ?? 0) > 0 ? (($stats['pending_requests'] / ($stats['total_requests'] ?: 1)) * 100) : 0; ?>%"></div>
                         </div>
                         <div class="text-center mt-3">
-                            <a href="medical-history.php" class="btn btn-outline-primary btn-sm btn-lift">
+                            <a href="reports.php" class="btn btn-outline-primary btn-sm btn-lift">
                                 <i class="fas fa-chart-line me-1"></i> View Health Report
                             </a>
                         </div>
