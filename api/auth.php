@@ -342,7 +342,7 @@ if ($action === 'register') {
                 'success' => true,
                 'message' => 'Registration successful! ' . 
                             ($user_role === 'doctor' ? 'Your account is pending admin approval.' : 'You can now login.'),
-                'redirect' => '/healthConnect/views/auth/login.php?success=registered'
+                'redirect' => '/healthConnect/views/auth/login.php'
             ]);
             
         } catch (Exception $e) {
