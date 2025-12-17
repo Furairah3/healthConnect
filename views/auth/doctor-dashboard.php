@@ -2,6 +2,7 @@
 // healthconnect/views/auth/doctor-dashboard.php
 session_start();
 require_once '../../app/config/database.php';
+
 // Check if user is logged in and is a doctor
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
     header('Location: login.php?error=required');
@@ -738,10 +739,9 @@ $activity = $activity_stmt->fetch();
                 </div>
                 <div class="col-lg-4 text-end position-relative">
                     <div class="mb-4">
-        
-                     
+                        <span class="doctor-badge">
                             <i class="fas fa-badge-check me-1"></i> Verified Doctor
-                        </a>
+                        </span>
                     </div>
                     <a href="respond-requests.php" 
                     id="helpNowBtn"
@@ -852,7 +852,8 @@ $activity = $activity_stmt->fetch();
                                                 </small>
                                             <?php endif; ?>
                                         </div>
-                                        <a href="view-request.php?id=<?php echo $request['request_id']; ?>" 
+                                        <!-- FIXED BUTTON - Now uses respond-request.php instead of view-request.php -->
+                                        <a href="respond-requests.php?id=<?php echo $request['request_id']; ?>" 
                                            class="btn btn-sm btn-outline-primary action-btn btn-lift">
                                             <i class="fas fa-comment-medical me-1"></i> Respond
                                         </a>
@@ -937,6 +938,7 @@ $activity = $activity_stmt->fetch();
                                             <th>Request</th>
                                             <th>Date</th>
                                             <th>Status</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -955,6 +957,12 @@ $activity = $activity_stmt->fetch();
                                                     <span class="badge bg-<?php echo $response['request_status'] === 'closed' ? 'success' : 'info'; ?> status-badge">
                                                         <?php echo ucfirst($response['request_status']); ?>
                                                     </span>
+                                                </td>
+                                                <td>
+                                                    <a href="view-request.php?id=<?php echo $response['request_id']; ?>" 
+                                                       class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-eye"></i> View
+                                                    </a>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -1187,7 +1195,15 @@ $activity = $activity_stmt->fetch();
                         .then(response => response.json())
                         .then(data => {
                             if (data.count > 0) {
+                                // Update counter
+                                pendingElement.setAttribute('data-target', data.count);
                                 animateCounter(pendingElement);
+                                
+                                // Update badge in nav
+                                const navBadge = document.querySelector('.nav-link[href="respond-requests.php"] .badge');
+                                if (navBadge) {
+                                    navBadge.textContent = data.count;
+                                }
                             }
                         })
                         .catch(error => console.error('Update error:', error));
