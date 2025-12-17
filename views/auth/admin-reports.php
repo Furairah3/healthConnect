@@ -112,12 +112,11 @@ $request_stats = $pdo->query("SELECT
 
 $stats['requests'] = $request_stats;
 
-// Forum statistics
+// Forum statistics - FIXED: Removed is_pinned column
 $forum_stats = $pdo->query("SELECT 
     COUNT(*) as total_posts,
     COUNT(DISTINCT author_id) as unique_authors,
-    AVG(LENGTH(content)) as avg_post_length,
-    SUM(CASE WHEN is_pinned = 1 THEN 1 ELSE 0 END) as pinned_posts
+    AVG(LENGTH(content)) as avg_post_length
     FROM hc_forum_posts")->fetch();
 
 $stats['forum'] = $forum_stats;
@@ -385,7 +384,6 @@ $stats['doctor_verifications'] = $doctor_stats;
                     <span class="stat-number"><?php echo $forum_stats['total_posts']; ?></span>
                     <small class="text-muted">
                         <?php echo $forum_stats['unique_authors']; ?> authors
-                        | <?php echo $forum_stats['pinned_posts']; ?> pinned
                     </small>
                 </div>
             </div>
