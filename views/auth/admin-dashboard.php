@@ -60,13 +60,13 @@ $activity_sql = "SELECT
 $activity_stmt = $pdo->query($activity_sql);
 $activity = $activity_stmt->fetch();
 
-// Get report statistics - FIXED: Use $stats instead of undefined $report_stats
+// Get report statistics - FIXED: Escape column names with backticks
 $reports_sql = "SELECT 
     COUNT(*) as total,
-    SUM(CASE WHEN urgency_level = 'high' THEN 1 ELSE 0 END) as high_priority,
-    SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) as pending,
-    SUM(CASE WHEN request_status = 'responded' THEN 1 ELSE 0 END) as responded,
-    SUM(CASE WHEN request_status = 'closed' THEN 1 ELSE 0 END) as closed,
+    SUM(CASE WHEN urgency_level = 'high' THEN 1 ELSE 0 END) as `high_priority_count`,
+    SUM(CASE WHEN request_status = 'pending' THEN 1 ELSE 0 END) as `pending_count`,
+    SUM(CASE WHEN request_status = 'responded' THEN 1 ELSE 0 END) as `responded_count`,
+    SUM(CASE WHEN request_status = 'closed' THEN 1 ELSE 0 END) as `closed_count`,
     COUNT(DISTINCT patient_id) as unique_patients
     FROM hc_medical_requests";
 
@@ -155,7 +155,7 @@ $report_stats = $reports_stmt->fetch();
             position: relative;
             overflow: hidden;
             animation: gradientShift 8s ease infinite;
-            margin-bottom: 30px; /* ADDED: Added spacing below nav */
+            margin-bottom: 30px;
         }
         
         .admin-nav::before {
@@ -222,32 +222,26 @@ $report_stats = $reports_stmt->fetch();
         .stat-card.patients { 
             background: linear-gradient(135deg, #0dcaf0, #0d6efd, #6610f2);
             background-size: 200% 200%;
-            animation: gradientShift 5s ease infinite;
         }
         .stat-card.volunteers { 
             background: linear-gradient(135deg, #20c997, #198754, #146c43);
             background-size: 200% 200%;
-            animation: gradientShift 5s ease infinite;
         }
         .stat-card.doctors { 
             background: linear-gradient(135deg, #6f42c1, #d63384, #fd7e14);
             background-size: 200% 200%;
-            animation: gradientShift 5s ease infinite;
         }
         .stat-card.requests { 
             background: linear-gradient(135deg, #ffc107, #fd7e14, #dc3545);
             background-size: 200% 200%;
-            animation: gradientShift 5s ease infinite;
         }
         .stat-card.forum { 
             background: linear-gradient(135deg, var(--community-color), #198754, #0dcaf0);
             background-size: 200% 200%;
-            animation: gradientShift 5s ease infinite;
         }
         .stat-card.tips { 
             background: linear-gradient(135deg, #6610f2, #6f42c1, #a370f7);
             background-size: 200% 200%;
-            animation: gradientShift 5s ease infinite;
         }
         
         .stat-icon {
@@ -292,7 +286,7 @@ $report_stats = $reports_stmt->fetch();
             animation: slideRight 0.6s var(--ease-out) forwards;
             opacity: 0;
             position: relative;
-            margin-bottom: 25px; /* ADDED: Added spacing between cards */
+            margin-bottom: 25px;
         }
         
         .quick-action-card:hover {
@@ -520,12 +514,10 @@ $report_stats = $reports_stmt->fetch();
         .medium-priority { background: #ffc107; color: black; }
         .low-priority { background: #20c997; color: white; }
         
-        /* ADDED: Main container spacing */
         .main-container {
             padding: 20px 0;
         }
         
-        /* ADDED: Responsive spacing */
         @media (max-width: 768px) {
             .stat-card {
                 margin-bottom: 15px;
@@ -606,7 +598,7 @@ $report_stats = $reports_stmt->fetch();
                     <div class="stat-icon">
                         <i class="fas fa-user-injured"></i>
                     </div>
-                    <div class="counter" data-target="<?php echo $stats['patients']; ?>">0</div>
+                    <div class="counter" data-target="<?php echo $stats['patients'] ?? 0; ?>">0</div>
                     <p class="mb-0 fw-semibold">Patients</p>
                     <small>Registered users</small>
                 </div>
@@ -616,7 +608,7 @@ $report_stats = $reports_stmt->fetch();
                     <div class="stat-icon">
                         <i class="fas fa-hands-helping"></i>
                     </div>
-                    <div class="counter" data-target="<?php echo $stats['volunteers']; ?>">0</div>
+                    <div class="counter" data-target="<?php echo $stats['volunteers'] ?? 0; ?>">0</div>
                     <p class="mb-0 fw-semibold">Volunteers</p>
                     <small>Active helpers</small>
                 </div>
@@ -626,7 +618,7 @@ $report_stats = $reports_stmt->fetch();
                     <div class="stat-icon">
                         <i class="fas fa-user-md"></i>
                     </div>
-                    <div class="counter" data-target="<?php echo $stats['doctors']; ?>">0</div>
+                    <div class="counter" data-target="<?php echo $stats['doctors'] ?? 0; ?>">0</div>
                     <p class="mb-0 fw-semibold">Doctors</p>
                     <small>Verified</small>
                 </div>
@@ -636,18 +628,17 @@ $report_stats = $reports_stmt->fetch();
                     <div class="stat-icon">
                         <i class="fas fa-file-medical"></i>
                     </div>
-                    <div class="counter" data-target="<?php echo $stats['total_requests']; ?>">0</div>
+                    <div class="counter" data-target="<?php echo $stats['total_requests'] ?? 0; ?>">0</div>
                     <p class="mb-0 fw-semibold">Requests</p>
                     <small>Total submissions</small>
                 </div>
             </div>
             <div class="col-md-2 col-sm-4 col-6">
-                <!-- FIXED: Community button - Points to admin-community.php -->
                 <div class="stat-card forum" onclick="window.location.href='admin-community.php'">
                     <div class="stat-icon">
                         <i class="fas fa-comments"></i>
                     </div>
-                    <div class="counter" data-target="<?php echo $stats['forum_posts']; ?>">0</div>
+                    <div class="counter" data-target="<?php echo $stats['forum_posts'] ?? 0; ?>">0</div>
                     <p class="mb-0 fw-semibold">Forum Posts</p>
                     <small>Community discussions</small>
                 </div>
@@ -657,7 +648,7 @@ $report_stats = $reports_stmt->fetch();
                     <div class="stat-icon">
                         <i class="fas fa-lightbulb"></i>
                     </div>
-                    <div class="counter" data-target="<?php echo $stats['total_tips']; ?>">0</div>
+                    <div class="counter" data-target="<?php echo $stats['total_tips'] ?? 0; ?>">0</div>
                     <p class="mb-0 fw-semibold">Health Tips</p>
                     <small>Educational content</small>
                 </div>
@@ -691,7 +682,7 @@ $report_stats = $reports_stmt->fetch();
                                         <small class="text-muted">Review applications</small>
                                     </div>
                                 </div>
-                                <?php if ($stats['pending_doctors'] > 0): ?>
+                                <?php if (($stats['pending_doctors'] ?? 0) > 0): ?>
                                     <span class="pending-badge"><?php echo $stats['pending_doctors']; ?> pending</span>
                                 <?php endif; ?>
                             </a>
@@ -716,11 +707,10 @@ $report_stats = $reports_stmt->fetch();
                                         <small class="text-muted">Medical consultations</small>
                                     </div>
                                 </div>
-                                <?php if ($stats['pending_requests'] > 0): ?>
+                                <?php if (($stats['pending_requests'] ?? 0) > 0): ?>
                                     <span class="pending-badge"><?php echo $stats['pending_requests']; ?> pending</span>
                                 <?php endif; ?>
                             </a>
-                            <!-- FIXED: Community link - Points to admin-community.php -->
                             <a href="admin-community.php" class="list-group-item list-group-item-action d-flex align-items-center">
                                 <div class="user-avatar" style="background: linear-gradient(135deg, var(--community-color), #198754);">
                                     <i class="fas fa-comments"></i>
@@ -731,7 +721,6 @@ $report_stats = $reports_stmt->fetch();
                                     <small class="text-muted">Forum & Discussions</small>
                                 </div>
                             </a>
-                            <!-- FIXED: Reports link - Points to admin-reports.php -->
                             <a href="admin-reports.php" class="list-group-item list-group-item-action d-flex align-items-center">
                                 <div class="user-avatar" style="background: linear-gradient(135deg, var(--reports-color), #dc3545);">
                                     <i class="fas fa-chart-bar"></i>
@@ -881,7 +870,6 @@ $report_stats = $reports_stmt->fetch();
                                 <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
                                 <h6 class="fw-bold mb-2">No Forum Posts Yet</h6>
                                 <p class="text-muted mb-3">Community discussions will appear here.</p>
-                                <!-- FIXED: Points to admin-community.php -->
                                 <a href="admin-community.php" class="btn btn-outline-success btn-sm btn-lift">
                                     <i class="fas fa-comments me-1"></i> Go to Community
                                 </a>
@@ -904,7 +892,6 @@ $report_stats = $reports_stmt->fetch();
                                                 <?php echo date('M d, Y H:i', strtotime($post['created_at'])); ?>
                                             </small>
                                         </div>
-                                        <!-- FIXED: Points to admin-community.php -->
                                         <a href="admin-community.php?post=<?php echo $post['post_id']; ?>" 
                                            class="btn btn-sm btn-outline-success btn-lift">
                                             <i class="fas fa-external-link-alt"></i>
@@ -913,11 +900,9 @@ $report_stats = $reports_stmt->fetch();
                                 </div>
                             <?php endforeach; ?>
                             <div class="text-center mt-3">
-                                <!-- FIXED: Points to admin-community.php -->
                                 <a href="admin-community.php" class="btn btn-success btn-sm btn-lift me-2">
                                     <i class="fas fa-comments me-1"></i> View Forum
                                 </a>
-                                <!-- FIXED: Points to admin-community.php with moderation parameter -->
                                 <a href="admin-community.php?action=moderate" class="btn btn-outline-success btn-sm btn-lift">
                                     <i class="fas fa-shield-alt me-1"></i> Moderate
                                 </a>
@@ -997,7 +982,7 @@ $report_stats = $reports_stmt->fetch();
                                     <h6 class="fw-bold mb-1">Total Requests</h6>
                                     <span class="activity-count"><?php echo $report_stats['total'] ?? 0; ?></span>
                                 </div>
-                                <span class="metric-badge high-priority"><?php echo $report_stats['high_priority'] ?? 0; ?> High</span>
+                                <span class="metric-badge high-priority"><?php echo $report_stats['high_priority_count'] ?? 0; ?> High</span>
                             </div>
                         </div>
                         
@@ -1008,9 +993,9 @@ $report_stats = $reports_stmt->fetch();
                             <div class="progress mb-1" style="height: 20px;">
                                 <?php 
                                 $total = $report_stats['total'] ?? 1;
-                                $pending_pct = ($report_stats['pending'] ?? 0) / $total * 100;
-                                $responded_pct = ($report_stats['responded'] ?? 0) / $total * 100;
-                                $closed_pct = ($report_stats['closed'] ?? 0) / $total * 100;
+                                $pending_pct = ($report_stats['pending_count'] ?? 0) / $total * 100;
+                                $responded_pct = ($report_stats['responded_count'] ?? 0) / $total * 100;
+                                $closed_pct = ($report_stats['closed_count'] ?? 0) / $total * 100;
                                 ?>
                                 <div class="progress-bar bg-warning" style="width: <?php echo $pending_pct; ?>%">
                                     Pending
@@ -1023,9 +1008,9 @@ $report_stats = $reports_stmt->fetch();
                                 </div>
                             </div>
                             <div class="d-flex justify-content-between small">
-                                <span><?php echo $report_stats['pending'] ?? 0; ?> Pending</span>
-                                <span><?php echo $report_stats['responded'] ?? 0; ?> Responded</span>
-                                <span><?php echo $report_stats['closed'] ?? 0; ?> Closed</span>
+                                <span><?php echo $report_stats['pending_count'] ?? 0; ?> Pending</span>
+                                <span><?php echo $report_stats['responded_count'] ?? 0; ?> Responded</span>
+                                <span><?php echo $report_stats['closed_count'] ?? 0; ?> Closed</span>
                             </div>
                         </div>
                         
@@ -1043,11 +1028,9 @@ $report_stats = $reports_stmt->fetch();
                         </div>
                         
                         <div class="text-center mt-4">
-                            <!-- FIXED: Reports link - Points to admin-reports.php -->
                             <a href="admin-reports.php" class="btn btn-warning btn-sm btn-lift me-2">
                                 <i class="fas fa-chart-line me-1"></i> View Full Reports
                             </a>
-                            <!-- FIXED: Export link - Points to admin-reports.php with export parameter -->
                             <a href="admin-reports.php?action=export" class="btn btn-outline-warning btn-sm btn-lift">
                                 <i class="fas fa-download me-1"></i> Export Data
                             </a>
