@@ -30,27 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Error deleting post: ' . $e->getMessage();
             $message_type = 'danger';
         }
-    } elseif (isset($_POST['pin_post'])) {
-        $post_id = $_POST['post_id'];
-        $is_pinned = $_POST['is_pinned'];
-        
-        $sql = "UPDATE hc_forum_posts SET is_pinned = :is_pinned WHERE post_id = :post_id";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':is_pinned' => $is_pinned,
-            ':post_id' => $post_id
-        ]);
-        
-        $message = $is_pinned ? 'Post pinned successfully' : 'Post unpinned successfully';
-        $message_type = 'success';
     }
 }
 
-// Get forum statistics
+// Get forum statistics - FIXED: Removed is_pinned column
 $stats_sql = "SELECT 
     COUNT(*) as total_posts,
     COUNT(DISTINCT author_id) as unique_authors,
-    SUM(CASE WHEN is_pinned = 1 THEN 1 ELSE 0 END) as pinned_posts,
     SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) as today_posts
     FROM hc_forum_posts";
 
@@ -77,15 +63,13 @@ if ($search) {
     $params[':search'] = "%$search%";
 }
 
-if ($filter === 'pinned') {
-    $sql .= " AND fp.is_pinned = 1";
-} elseif ($filter === 'recent') {
+if ($filter === 'recent') {
     $sql .= " AND fp.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
 } elseif ($filter === 'no_replies') {
     $sql .= " AND (SELECT COUNT(*) FROM hc_forum_replies fr WHERE fr.post_id = fp.post_id) = 0";
 }
 
-$sql .= " ORDER BY fp.is_pinned DESC, fp.created_at DESC";
+$sql .= " ORDER BY fp.created_at DESC";
 
 // Get total count for pagination
 $count_sql = str_replace("fp.*, u.full_name, u.user_role", "COUNT(*) as total", $sql);
@@ -320,14 +304,14 @@ $posts = $stmt->fetchAll();
             </div>
             <div class="col-lg-3 col-md-6">
                 <div class="stat-card">
-                    <span class="stat-number"><?php echo $stats['pinned_posts']; ?></span>
-                    <span>Pinned Posts</span>
+                    <span class="stat-number"><?php echo $stats['today_posts']; ?></span>
+                    <span>Today's Posts</span>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
                 <div class="stat-card">
-                    <span class="stat-number"><?php echo $stats['today_posts']; ?></span>
-                    <span>Today's Posts</span>
+                    <span class="stat-number"><?php echo $total_posts; ?></span>
+                    <span>Current Filter</span>
                 </div>
             </div>
         </div>
@@ -342,7 +326,6 @@ $posts = $stmt->fetchAll();
                 <div class="col-md-4">
                     <select name="filter" class="form-control">
                         <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>All Posts</option>
-                        <option value="pinned" <?php echo $filter === 'pinned' ? 'selected' : ''; ?>>Pinned Posts</option>
                         <option value="recent" <?php echo $filter === 'recent' ? 'selected' : ''; ?>>Recent (7 days)</option>
                         <option value="no_replies" <?php echo $filter === 'no_replies' ? 'selected' : ''; ?>>No Replies</option>
                     </select>
@@ -385,16 +368,12 @@ $posts = $stmt->fetchAll();
                 </div>
                 
                 <?php foreach ($posts as $post): ?>
-                    <div class="post-card <?php echo $post['is_pinned'] ? 'pinned' : ''; ?>">
+                    <div class="post-card">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div>
                                 <h5 class="fw-bold mb-1">
+                                    <i class="fas fa-comment text-success me-2"></i>
                                     <?php echo htmlspecialchars($post['title']); ?>
-                                    <?php if ($post['is_pinned']): ?>
-                                        <span class="pinned-badge">
-                                            <i class="fas fa-thumbtack me-1"></i> Pinned
-                                        </span>
-                                    <?php endif; ?>
                                 </h5>
                                 <div class="d-flex align-items-center flex-wrap gap-2">
                                     <span class="user-badge badge-<?php echo $post['user_role']; ?>">
@@ -412,15 +391,6 @@ $posts = $stmt->fetchAll();
                                 </div>
                             </div>
                             <div class="action-buttons">
-                                <form method="POST" class="d-inline">
-                                    <input type="hidden" name="post_id" value="<?php echo $post['post_id']; ?>">
-                                    <input type="hidden" name="is_pinned" value="<?php echo $post['is_pinned'] ? '0' : '1'; ?>">
-                                    <button type="submit" name="pin_post" 
-                                            class="btn btn-sm btn-<?php echo $post['is_pinned'] ? 'warning' : 'outline-warning'; ?>">
-                                        <i class="fas fa-thumbtack"></i>
-                                        <?php echo $post['is_pinned'] ? 'Unpin' : 'Pin'; ?>
-                                    </button>
-                                </form>
                                 <button type="button" class="btn btn-sm btn-danger" 
                                         data-bs-toggle="modal" 
                                         data-bs-target="#deleteModal<?php echo $post['post_id']; ?>">
