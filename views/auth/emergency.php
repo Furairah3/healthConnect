@@ -15,8 +15,8 @@ require_once '../../app/config/database.php';
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 
-// Get patient location from database
-$user_sql = "SELECT location, phone_number FROM hc_users WHERE user_id = :user_id";
+// Get patient location from database - FIXED: removed phone_number column
+$user_sql = "SELECT location FROM hc_users WHERE user_id = :user_id";
 $user_stmt = $pdo->prepare($user_sql);
 $user_stmt->execute([':user_id' => $user_id]);
 $user_data = $user_stmt->fetch();
@@ -599,12 +599,7 @@ $procedures = [
                                 <?php echo htmlspecialchars($user_data['location']); ?>
                             </p>
                         <?php endif; ?>
-                        <?php if ($user_data['phone_number']): ?>
-                            <p class="mb-0 mt-2">
-                                <i class="fas fa-phone me-2"></i>
-                                <?php echo htmlspecialchars($user_data['phone_number']); ?>
-                            </p>
-                        <?php endif; ?>
+                        <!-- Removed phone number display since column doesn't exist -->
                     </div>
                 </div>
             </div>
