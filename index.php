@@ -273,7 +273,7 @@ require_once 'app/config/database.php';
                 </div>
                 <div class="col-lg-6">
                     <div class="text-center">
-                        <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
+                        <img src="volunteer-pic.jpg" 
                              alt="Community volunteers helping others" class="img-fluid rounded-3 shadow-lg">
                         <div class="mt-4">
                             <h5 class="fw-bold">Community Impact</h5>
