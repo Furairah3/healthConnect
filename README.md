@@ -40,6 +40,9 @@ http://169.239.251.102:341/~foureiratou.idi/healthConnect
 - **Volunteer:** Respond to non-critical cases and escalate when necessary
 - **Doctor:** Handle complex cases and provide verified medical advice
 - **Administrator:** Approve doctors, manage users, and monitor system activity
+### Role of Volunteers
+
+In HealthConnect, volunteers are not limited to healthcare professionals but also include community members who are passionate about helping others. In many rural areas, doctors may be unavailable or difficult to access, while volunteers are often present within the community. These volunteers provide basic health guidance, help patients understand their symptoms, escalate serious cases to doctors, and support local health initiatives such as awareness campaigns or blood donation activities. By including volunteers as a core role, HealthConnect reflects real-world rural healthcare dynamics and ensures that patients receive timely support even when professional medical resources are limited.
 
 ---
 
