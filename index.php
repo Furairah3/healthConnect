@@ -383,39 +383,58 @@ require_once 'app/config/database.php';
             </div>
             
             <!-- Founder & Goal -->
-            <div class="row align-items-center">
-                <div class="col-lg-4">
-                    <div class="text-center mb-4">
-                        <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
-                             alt="Founder" class="img-fluid rounded-circle shadow-lg" style="width: 250px; height: 250px; object-fit: cover;">
+<div class="row align-items-center">
+    <div class="col-lg-4">
+        <div class="text-center mb-4">
+            <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                 alt="Founder" class="img-fluid rounded-circle shadow-lg" style="width: 250px; height: 250px; object-fit: cover;">
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="founder-section p-5 rounded-3">
+            <h3 class="fw-bold mb-4 text-primary">
+                <i class="fas fa-user-nurse me-2"></i>My Journey: From Healthcare to Technology
+            </h3>
+
+            <p class="lead mb-4">
+                I have seen firsthand how difficult it can be for people in rural communities to access timely healthcare. 
+                Doctors are often unavailable, but community members and volunteers are always present. 
+                This reality inspired me to build HealthConnect as a platform that empowers volunteers and connects them with patients and doctors when possible.
+            </p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-4">
+                        <h5 class="fw-bold">
+                            <i class="fas fa-graduation-cap text-info me-2"></i>My Background
+                        </h5>
+                        <p>
+                            I am a Computer Science student with a strong interest in healthcare technology, driven by real-world challenges faced by underserved communities.
+                        </p>
                     </div>
                 </div>
-                <div class="col-lg-8">
-                    <div class="founder-section p-5 rounded-3">
-                        <h3 class="fw-bold mb-4 text-primary"><i class="fas fa-user-nurse me-2"></i>From Nurse to Tech Innovator</h3>
-                        <p class="lead mb-4">As a registered nurse with firsthand experience in rural healthcare challenges, I witnessed the critical gap between patients and medical resources. This inspired me to pursue Computer Science to create technological solutions that bridge this divide.</p>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-4">
-                                    <h5 class="fw-bold"><i class="fas fa-graduation-cap text-info me-2"></i>Background</h5>
-                                    <p>Registered Nurse transitioning to Computer Science to merge healthcare expertise with technology innovation.</p>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-4">
-                                    <h5 class="fw-bold"><i class="fas fa-crosshairs text-success me-2"></i>Primary Goal</h5>
-                                    <p>To develop scalable technology solutions that democratize access to healthcare in underserved rural communities.</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <blockquote class="blockquote border-start border-3 border-primary ps-3 mt-4">
-                            <p class="fst-italic">"Combining healthcare experience with technology skills allows us to create solutions that truly understand and address real patient needs in remote areas."</p>
-                        </blockquote>
+
+                <div class="col-md-6">
+                    <div class="mb-4">
+                        <h5 class="fw-bold">
+                            <i class="fas fa-crosshairs text-success me-2"></i>My Goal
+                        </h5>
+                        <p>
+                            My goal is to use technology to support community-based healthcare, enabling volunteers to assist patients, organize local health activities, and bridge the gap where medical professionals are not immediately available.
+                        </p>
                     </div>
                 </div>
             </div>
+
+            <blockquote class="blockquote border-start border-3 border-primary ps-3 mt-4">
+                <p class="fst-italic">
+                    "Healthcare should not depend on location. By empowering communities and volunteers, we can make support available even where doctors are few."
+                </p>
+            </blockquote>
+        </div>
+    </div>
+</div>
+
         </div>
     </section>
 
