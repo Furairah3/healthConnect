@@ -386,7 +386,7 @@ require_once 'app/config/database.php';
 <div class="row align-items-center">
     <div class="col-lg-4">
         <div class="text-center mb-4">
-            <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+            <img src="assets/images/furaira" 
                  alt="Founder" class="img-fluid rounded-circle shadow-lg" style="width: 250px; height: 250px; object-fit: cover;">
         </div>
     </div>
