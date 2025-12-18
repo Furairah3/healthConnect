@@ -277,7 +277,7 @@ require_once 'app/config/database.php';
                              alt="Community volunteers helping others" class="img-fluid rounded-3 shadow-lg">
                         <div class="mt-4">
                             <h5 class="fw-bold">Community Impact</h5>
-                            <p class="text-muted">Volunteers have helped over 500 patients access healthcare advice in remote areas where medical facilities are scarce.</p>
+                            <p class="text-muted">Volunteers have helped over 50 patients access healthcare advice in remote areas where medical facilities are scarce.</p>
                         </div>
                     </div>
                 </div>
@@ -406,10 +406,10 @@ require_once 'app/config/database.php';
                 <div class="col-md-6">
                     <div class="mb-4">
                         <h5 class="fw-bold">
-                            <i class="fas fa-graduation-cap text-info me-2"></i>My Background
+                            <i class="fas fa-graduation-cap text-info me-2"></i>My Background (Nurse and tech)
                         </h5>
                         <p>
-                            I am a Computer Science student with a strong interest in healthcare technology, driven by real-world challenges faced by underserved communities.
+                            I am a Computer Science student also a Nurse with a strong interest in healthcare technology, driven by real-world challenges faced by underserved communities.
                         </p>
                     </div>
                 </div>
