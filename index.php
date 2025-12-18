@@ -116,19 +116,19 @@ require_once 'app/config/database.php';
                     <div class="row mb-4">
                         <div class="col-4">
                             <div class="text-center">
-                                <div class="stat-number">500+</div>
+                                <div class="stat-number">50+</div>
                                 <div class="stat-label">Patients Helped</div>
                             </div>
                         </div>
                         <div class="col-4">
                             <div class="text-center">
-                                <div class="stat-number">80+</div>
+                                <div class="stat-number">20+</div>
                                 <div class="stat-label">Volunteers</div>
                             </div>
                         </div>
                         <div class="col-4">
                             <div class="text-center">
-                                <div class="stat-number">95%</div>
+                                <div class="stat-number">35%</div>
                                 <div class="stat-label">Satisfaction Rate</div>
                             </div>
                         </div>
