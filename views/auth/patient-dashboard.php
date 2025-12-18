@@ -558,7 +558,7 @@ $activity = $activity_stmt->fetch();
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="create-request.php">
+                        <a class="nav-link" href="my-requests.php">
                             <i class="fas fa-history me-1"></i> My Requests
                         </a>
                     </li>
@@ -699,7 +699,7 @@ $activity = $activity_stmt->fetch();
                                 <h4 class="mb-0"><i class="fas fa-history text-primary me-2"></i> Recent Requests</h4>
                                 <p class="text-muted mb-0 mt-1">Your recent medical consultations</p>
                             </div>
-                            <a href="create-request.php" class="btn btn-primary btn-lift">
+                            <a href="my-requests.php" class="btn btn-primary btn-lift">
                                 <i class="fas fa-list me-1"></i> View All
                             </a>
                         </div>
@@ -818,7 +818,7 @@ $activity = $activity_stmt->fetch();
                                 </a>
                             </div>
                             <div class="col-md-6">
-                                <a href="create-request.php" class="card quick-action-card text-decoration-none">
+                                <a href="my-requests.php" class="card quick-action-card text-decoration-none">
                                     <div class="card-body text-center p-4">
                                         <div class="mb-3">
                                             <i class="fas fa-history fa-3x text-info"></i>
