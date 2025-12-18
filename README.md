@@ -198,6 +198,10 @@ HealthConnect is a fully functional **Minimum Viable Product (MVP)** featuring:
 - Strong security foundation
 
 The system is ready for academic evaluation and future expansion.
+---
+### Open for Feedback and Collaboration
+
+HealthConnect is designed as a real-world solution to healthcare access challenges in underserved communities. As such, the project is continuously evolving, and I am open to constructive feedback, ideas, and suggestions for improvement. Insights related to system design, security, scalability, healthcare workflows, or community engagement are especially welcome, as they will help refine the platform and strengthen its impact beyond the academic scope.
 
 ---
 
